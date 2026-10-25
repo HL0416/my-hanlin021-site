@@ -2,6 +2,7 @@
   "name": "pure-frontend-site",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "description": "纯前端站点 + Netlify Functions/Blobs 跨设备同步",
   "dependencies": {
     "@netlify/blobs": "^9.1.2"
