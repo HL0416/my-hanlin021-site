@@ -11,14 +11,22 @@ const corsHeaders = {
     'Access-Control-Allow-Headers': 'Content-Type'
 };
 
+// 优先自动注入（官方零配置）；若运行时未注入 siteID/token，则用环境变量兜底
+function openStore() {
+    const token = process.env.NETLIFY_BLOBS_TOKEN || process.env.NETLIFY_AUTH_TOKEN;
+    if (token) {
+        return getStore({ name: 'site-data', consistency: 'strong', siteID: process.env.NETLIFY_SITE_ID, token: token });
+    }
+    return getStore({ name: 'site-data', consistency: 'strong' });
+}
+
 export default async function handler(req) {
     // OPTIONS 预检：直接放行
     if (req.method === 'OPTIONS') {
         return new Response(null, { status: 204, headers: corsHeaders });
     }
 
-    // Functions v2 运行时自动注入 siteID/token，无需手传
-    const store = getStore({ name: 'site-data', consistency: 'strong' });
+    const store = openStore();
 
     try {
         if (req.method === 'GET') {
