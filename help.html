@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>帮助中心</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="help-page">
+    <nav class="top-nav">
+        <div class="nav-left">
+            <span class="site-brand">我的站点</span>
+        </div>
+        <div class="nav-right">
+            <button id="themeToggle" class="btn btn-ghost btn-sm theme-btn">深色模式</button>
+            <a href="index.html" class="btn btn-primary btn-sm">返回首页</a>
+        </div>
+    </nav>
+
+    <div class="help-container">
+        <h1>帮助中心</h1>
+        <p class="help-subtitle">常见问题与使用指南，帮你快速上手本站</p>
+
+        <!-- 常见问题 -->
+        <section class="home-section">
+            <div class="section-header">
+                <h2>常见问题</h2>
+            </div>
+            <div class="faq-list" id="faqList">
+                <div class="faq-item">
+                    <button class="faq-question" type="button">如何注册账号？<span class="faq-arrow">+</span></button>
+                    <div class="faq-answer">点击导航栏的"注册"按钮，填写用户名、密码、手机号与邮箱即可完成注册。注册成功后系统会自动分配唯一账号ID（普通用户从 10000001 开始）。</div>
+                </div>
+                <div class="faq-item">
+                    <button class="faq-question" type="button">忘记密码怎么办？<span class="faq-arrow">+</span></button>
+                    <div class="faq-answer">在登录页点击"忘记密码"，输入注册时绑定的手机号或邮箱，按提示重置密码。请确保绑定信息真实有效。</div>
+                </div>
+                <div class="faq-item">
+                    <button class="faq-question" type="button">账号ID是什么？有什么用？<span class="faq-arrow">+</span></button>
+                    <div class="faq-answer">账号ID是系统为每个用户分配的唯一数字标识：普通用户从 10000001 开始递增，管理员从 2001 开始递增。可在"个人信息"页面查看，用于唯一标识你的账号。</div>
+                </div>
+                <div class="faq-item">
+                    <button class="faq-question" type="button">如何修改个人资料与头像？<span class="faq-arrow">+</span></button>
+                    <div class="faq-answer">登录后进入"个人信息"页面，可修改昵称、头像（支持上传本地图片或选择内置头像）、性别、生日、所在地、个人简介等，保存后立即生效。</div>
+                </div>
+                <div class="faq-item">
+                    <button class="faq-question" type="button">如何提升账号安全性？<span class="faq-arrow">+</span></button>
+                    <div class="faq-answer">在"个人信息 - 账号与安全"中绑定手机号和邮箱、设置强密码，并定期查看登录设备记录，及时踢出陌生设备。</div>
+                </div>
+                <div class="faq-item">
+                    <button class="faq-question" type="button">管理员可以做什么？<span class="faq-arrow">+</span></button>
+                    <div class="faq-answer">管理员登录后自动进入管理后台，可进行用户管理、内容管理、文件管理、消息管理、系统设置与操作日志查看；超级管理员还可创建管理员账号。</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 联系我们 -->
+        <section class="home-section">
+            <div class="section-header">
+                <h2>联系我们</h2>
+            </div>
+            <div class="contact-grid">
+                <div class="contact-card">
+                    <div class="contact-icon">邮</div>
+                    <div class="contact-title">邮箱支持</div>
+                    <div class="contact-desc" id="supportEmail">support@mysite.local</div>
+                </div>
+                <div class="contact-card">
+                    <div class="contact-icon">信</div>
+                    <div class="contact-title">在线反馈</div>
+                    <div class="contact-desc">登录后可在首页"快速留言"中提交反馈</div>
+                </div>
+                <div class="contact-card">
+                    <div class="contact-icon">时</div>
+                    <div class="contact-title">服务时间</div>
+                    <div class="contact-desc">周一至周日 9:00 - 21:00</div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <footer class="site-footer">
+        <div class="footer-inner">
+            <div class="footer-col">
+                <h4>我的站点</h4>
+                <p>一个基于本地存储的纯前端示例站点，包含登录注册、角色权限、内容管理与数据统计等功能。</p>
+            </div>
+            <div class="footer-col">
+                <h4>快速链接</h4>
+                <ul>
+                    <li><a href="index.html">首页</a></li>
+                    <li><a href="profile.html">个人信息</a></li>
+                    <li><a href="help.html">帮助中心</a></li>
+                </ul>
+            </div>
+            <div class="footer-col">
+                <h4>帮助与支持</h4>
+                <ul>
+                    <li><a href="help.html#faqList">常见问题</a></li>
+                    <li><a href="help.html">联系我们</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <span>© 2026 我的站点 · 纯前端演示项目</span>
+        </div>
+    </footer>
+
+    <script src="auth.js"></script>
+</body>
+</html>

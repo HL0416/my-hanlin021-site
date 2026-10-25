@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的站点 - 通用入口</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="home-page">
+    <nav class="top-nav">
+        <div class="nav-left">
+            <span class="site-brand">我的站点</span>
+        </div>
+        <div class="nav-right">
+            <button id="themeToggle" class="btn btn-ghost btn-sm theme-btn">深色模式</button>
+            <a href="help.html" class="btn btn-ghost btn-sm">帮助中心</a>
+            <div id="adminLink" style="display:none;">
+                <a href="admin.html" class="btn btn-primary btn-sm">进入管理后台</a>
+            </div>
+            <div id="viewHomeLi" style="display:none;">
+                <a href="index.html" class="btn btn-primary btn-sm">查看首页</a>
+            </div>
+            <a href="profile.html" class="btn btn-primary btn-sm">个人信息</a>
+            <button id="logoutBtn" class="btn btn-danger btn-sm">退出登录</button>
+        </div>
+    </nav>
+
+    <div class="home-container">
+        <!-- Hero 轮播区 -->
+        <section class="hero-carousel" id="heroCarousel">
+            <div class="hero-slides" id="heroSlides">
+                <div class="hero-slide active">
+                    <div class="hero-inner">
+                        <h2 id="heroWelcomeTitle">欢迎来到我的站点</h2>
+                        <p class="hero-sub">一站式管理你的内容、消息与个人资料，安全又便捷</p>
+                        <a href="profile.html" class="btn btn-primary">完善个人资料</a>
+                    </div>
+                </div>
+                <div class="hero-slide">
+                    <div class="hero-inner">
+                        <h2>安全认证 · 角色权限</h2>
+                        <p class="hero-sub">手机/邮箱绑定、密码强度校验，普通用户与管理员各司其职</p>
+                        <a href="help.html" class="btn btn-secondary">了解更多</a>
+                    </div>
+                </div>
+                <div class="hero-slide">
+                    <div class="hero-inner">
+                        <h2>内容 · 公告 · 数据统计</h2>
+                        <p class="hero-sub">发布留言动态、查看公告通知，管理后台数据一目了然</p>
+                        <a href="#siteStats" class="btn btn-secondary">查看站点数据</a>
+                    </div>
+                </div>
+                <div class="hero-slide">
+                    <div class="hero-inner">
+                        <h2>互动社区 · 点赞评论</h2>
+                        <p class="hero-sub">发布内容、点赞评论、收藏关注，与社区共同成长</p>
+                        <a href="#contentList" class="btn btn-secondary">浏览内容</a>
+                    </div>
+                </div>
+                <div class="hero-slide">
+                    <div class="hero-inner">
+                        <h2>消息 · 收藏 · 个人动态</h2>
+                        <p class="hero-sub">实时消息通知、我的收藏管理、个人动态时间线</p>
+                        <a href="profile.html#messagesTab" class="btn btn-secondary">查看动态</a>
+                    </div>
+                </div>
+            </div>
+            <button class="hero-arrow hero-prev" id="heroPrev" aria-label="上一张">&#10094;</button>
+            <button class="hero-arrow hero-next" id="heroNext" aria-label="下一张">&#10095;</button>
+            <div class="hero-dots" id="heroDots"></div>
+        </section>
+
+        <!-- 欢迎横幅 -->
+        <section class="welcome-banner">
+            <div class="banner-content">
+                <div id="welcomeAvatar" class="welcome-avatar"></div>
+                <h1 id="welcomeUser"></h1>
+                <p id="welcomeDate"></p>
+                <p class="banner-sub">在这里管理你的内容、消息与个人资料</p>
+                <p class="banner-account" id="welcomeAccount"></p>
+            </div>
+        </section>
+
+        <!-- 站点数据统计 -->
+        <section class="home-section" id="siteStats">
+            <div class="section-header">
+                <h2>站点数据</h2>
+                <span class="section-badge">实时统计</span>
+            </div>
+            <div class="site-stats-grid">
+                <div class="site-stat-card">
+                    <div class="site-stat-icon stat-users">用</div>
+                    <div class="site-stat-num" id="statUserCount">0</div>
+                    <div class="site-stat-label">注册用户</div>
+                </div>
+                <div class="site-stat-card">
+                    <div class="site-stat-icon stat-contents">文</div>
+                    <div class="site-stat-num" id="statContentCount">0</div>
+                    <div class="site-stat-label">发布内容</div>
+                </div>
+                <div class="site-stat-card">
+                    <div class="site-stat-icon stat-notices">公</div>
+                    <div class="site-stat-num" id="statNoticeCount">0</div>
+                    <div class="site-stat-label">公告通知</div>
+                </div>
+                <div class="site-stat-card">
+                    <div class="site-stat-icon stat-logs">日</div>
+                    <div class="site-stat-num" id="statLogCount">0</div>
+                    <div class="site-stat-label">操作日志</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 公告通知 -->
+        <section class="home-section">
+            <div class="section-header">
+                <h2>公告通知</h2>
+                <span class="section-badge" id="announcementCount">0</span>
+            </div>
+            <div id="announcementList" class="announcement-list"></div>
+            <p id="announcementEmpty" class="empty-tip" style="display:none;">暂无公告</p>
+        </section>
+
+        <!-- 功能特性介绍 -->
+        <section class="home-section">
+            <div class="section-header">
+                <h2>平台特色</h2>
+                <span class="section-badge">Feature</span>
+            </div>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <div class="feature-icon feature-icon-auth">安</div>
+                    <div class="feature-title">安全认证</div>
+                    <div class="feature-desc">手机号/邮箱格式校验、密码强度检测、登录设备管理，全方位守护账号安全。</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon feature-icon-role">权</div>
+                    <div class="feature-title">角色权限</div>
+                    <div class="feature-desc">超级管理员、管理员、普通用户三级权限，后台功能按角色动态开放。</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon feature-icon-content">内</div>
+                    <div class="feature-title">内容管理</div>
+                    <div class="feature-desc">快速发布留言动态，最新内容实时展示，后台统一审核管理。</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon feature-icon-stats">数</div>
+                    <div class="feature-title">数据统计</div>
+                    <div class="feature-desc">管理后台图表可视化，用户、内容、公告、日志数据一屏掌握。</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 快捷功能区 -->
+        <section class="home-section">
+            <div class="section-header">
+                <h2>快捷功能</h2>
+            </div>
+            <div class="quick-actions">
+                <a href="profile.html" class="quick-card">
+                    <div class="quick-icon quick-icon-profile">资</div>
+                    <div class="quick-title">个人资料</div>
+                    <div class="quick-desc">完善你的个人资料信息</div>
+                </a>
+                <div class="quick-card quick-card-btn" id="quickCompose">
+                    <div class="quick-icon quick-icon-write">发</div>
+                    <div class="quick-title">快速留言</div>
+                    <div class="quick-desc">写一条留言 / 动态</div>
+                </div>
+                <a href="help.html" class="quick-card">
+                    <div class="quick-icon quick-icon-help">帮</div>
+                    <div class="quick-title">帮助中心</div>
+                    <div class="quick-desc">常见问题与使用指南</div>
+                </a>
+                <a href="#" class="quick-card" onclick="window.scrollTo({top:0,behavior:'smooth'});return false;">
+                    <div class="quick-icon quick-icon-top">回</div>
+                    <div class="quick-title">回到顶部</div>
+                    <div class="quick-desc">返回页面顶部</div>
+                </a>
+            </div>
+        </section>
+
+        <!-- 内容展示区 -->
+        <section class="home-section">
+            <div class="section-header">
+                <h2>最新内容</h2>
+            </div>
+            <div id="contentList" class="content-list"></div>
+            <p id="contentEmpty" class="empty-tip">暂无内容，快来发布第一条吧</p>
+        </section>
+    </div>
+
+    <!-- 页脚 -->
+    <footer class="site-footer">
+        <div class="footer-inner">
+            <div class="footer-col">
+                <h4>我的站点</h4>
+                <p>一个基于本地存储的纯前端示例站点，包含登录注册、角色权限、内容管理与数据统计等功能。</p>
+            </div>
+            <div class="footer-col">
+                <h4>快速链接</h4>
+                <ul>
+                    <li><a href="index.html">首页</a></li>
+                    <li><a href="profile.html">个人信息</a></li>
+                    <li><a href="help.html">帮助中心</a></li>
+                </ul>
+            </div>
+            <div class="footer-col">
+                <h4>帮助与支持</h4>
+                <ul>
+                    <li><a href="help.html#faqList">常见问题</a></li>
+                    <li><a href="help.html">联系我们</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <span>© 2026 我的站点 · 纯前端演示项目</span>
+        </div>
+    </footer>
+
+    <!-- 留言弹窗 -->
+    <div class="modal-overlay" id="composeModal">
+        <div class="modal-content">
+            <button class="modal-close" id="composeClose">&times;</button>
+            <h3>发布留言</h3>
+            <label>标题</label>
+            <input type="text" id="composeTitle" placeholder="给这条留言起个标题">
+            <label>内容</label>
+            <textarea id="composeBody" rows="5" placeholder="写点什么..."></textarea>
+            <div class="modal-footer">
+                <button class="btn btn-primary btn-sm" id="composeSubmit">发布</button>
+                <button class="btn btn-secondary btn-sm" id="composeCancel">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="auth.js"></script>
+</body>
+</html>

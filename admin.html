@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <meta name="theme-color" content="#667eea">
+    <link rel="manifest" href="manifest.json">
+    <title>管理后台</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="admin-page">
+    <!-- 手机端顶部工具栏 -->
+    <div class="admin-mobile-bar">
+        <button id="adminMobileToggle" class="admin-mobile-toggle" aria-label="展开菜单">&#9776;</button>
+        <span id="adminMobileTitle" class="admin-mobile-title">数据统计</span>
+        <span class="admin-mobile-admin" id="adminMobileAdmin"></span>
+    </div>
+
+    <!-- 侧边栏（分组导航） -->
+    <aside class="admin-sidebar" id="adminSidebar">
+        <div class="sidebar-header">
+            <h2>管理控制台</h2>
+            <button id="sidebarToggle" class="sidebar-toggle">&#9776;</button>
+        </div>
+        <nav class="sidebar-nav">
+            <ul>
+                <li class="sidebar-group-title">概览</li>
+                <li class="active"><a href="#" data-tab="dashboard"><span class="nav-icon">📊</span><span class="nav-text">仪表盘</span></a></li>
+
+                <li class="sidebar-group-title">用户</li>
+                <li><a href="#" data-tab="users"><span class="nav-icon">👥</span><span class="nav-text">用户管理</span></a></li>
+
+                <li class="sidebar-group-title">内容</li>
+                <li><a href="#" data-tab="content"><span class="nav-icon">📄</span><span class="nav-text">内容管理</span></a></li>
+                <li><a href="#" data-tab="announcements"><span class="nav-icon">📢</span><span class="nav-text">公告管理</span></a></li>
+
+                <li class="sidebar-group-title">文件</li>
+                <li><a href="#" data-tab="files"><span class="nav-icon">📁</span><span class="nav-text">文件管理</span></a></li>
+
+                <li class="sidebar-group-title">留言反馈</li>
+                <li><a href="#" data-tab="guestbook"><span class="nav-icon">💬</span><span class="nav-text">留言管理</span></a></li>
+                <li><a href="#" data-tab="feedback"><span class="nav-icon">📝</span><span class="nav-text">反馈管理</span></a></li>
+
+                <li class="sidebar-group-title">相册投票</li>
+                <li><a href="#" data-tab="albums"><span class="nav-icon">🖼️</span><span class="nav-text">相册管理</span></a></li>
+                <li><a href="#" data-tab="polls"><span class="nav-icon">🗳️</span><span class="nav-text">投票管理</span></a></li>
+                <li><a href="#" data-tab="messages"><span class="nav-icon">✉️</span><span class="nav-text">消息通知</span></a></li>
+
+                <li class="sidebar-group-title">系统</li>
+                <li><a href="#" data-tab="settings"><span class="nav-icon">⚙️</span><span class="nav-text">系统设置</span></a></li>
+                <li><a href="#" data-tab="logs"><span class="nav-icon">🧾</span><span class="nav-text">操作日志</span></a></li>
+                <li><a href="#" data-tab="settings" class="backup-nav-item"><span class="nav-icon">💾</span><span class="nav-text">备份恢复</span></a></li>
+                <li id="viewHomeLi"><a href="index.html" class="btn btn-ghost btn-sm"><span class="nav-icon">🏠</span><span class="nav-text">查看首页</span></a></li>
+            </ul>
+        </nav>
+        <div class="sidebar-footer">
+            <button id="logoutBtn" class="btn btn-danger btn-sm">退出登录</button>
+        </div>
+    </aside>
+
+    <!-- 侧边栏遮罩（手机） -->
+    <div class="sidebar-overlay" id="adminSidebarOverlay"></div>
+
+    <!-- 主内容区 -->
+    <main class="admin-main">
+        <!-- 顶部栏 -->
+        <header class="admin-header">
+            <h1 id="pageTitle">数据统计</h1>
+            <div class="admin-header-right">
+                <span id="currentAdmin"></span>
+                <button id="changeEmailBtn" class="btn btn-ghost btn-sm" style="margin-left:8px;">配置支持邮箱</button>
+            </div>
+        </header>
+
+        <!-- 标签页内容 -->
+        <div class="tab-content">
+            <!-- 仪表盘 -->
+            <section id="tab-dashboard" class="tab-panel active">
+                <div class="stats-grid dashboard-stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon user-icon"></div>
+                        <div class="stat-info">
+                            <span class="stat-value" id="totalUsers">0</span>
+                            <span class="stat-label">用户总数</span>
+                            <span class="stat-trend" id="totalUsersTrend"></span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon online-icon"></div>
+                        <div class="stat-info">
+                            <span class="stat-value" id="onlineUsers">0</span>
+                            <span class="stat-label">当前在线</span>
+                            <span class="stat-trend" id="onlineUsersTrend"></span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon today-icon"></div>
+                        <div class="stat-info">
+                            <span class="stat-value" id="todayUsers">0</span>
+                            <span class="stat-label">今日新增用户</span>
+                            <span class="stat-trend" id="todayUsersTrend"></span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon week-icon"></div>
+                        <div class="stat-info">
+                            <span class="stat-value" id="weekUsers">0</span>
+                            <span class="stat-label">本周新增</span>
+                            <span class="stat-trend" id="weekUsersTrend"></span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon content-icon"></div>
+                        <div class="stat-info">
+                            <span class="stat-value" id="totalContents">0</span>
+                            <span class="stat-label">内容总数</span>
+                            <span class="stat-trend" id="totalContentsTrend"></span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon file-icon"></div>
+                        <div class="stat-info">
+                            <span class="stat-value" id="totalFiles">0</span>
+                            <span class="stat-label">文件总数</span>
+                            <span class="stat-trend" id="totalFilesTrend"></span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon guestbook-icon"></div>
+                        <div class="stat-info">
+                            <span class="stat-value" id="totalGuestbook">0</span>
+                            <span class="stat-label">留言总数</span>
+                            <span class="stat-trend" id="totalGuestbookTrend"></span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon feedback-icon"></div>
+                        <div class="stat-info">
+                            <span class="stat-value" id="totalFeedback">0</span>
+                            <span class="stat-label">反馈总数</span>
+                            <span class="stat-trend" id="totalFeedbackTrend"></span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon active-icon"></div>
+                        <div class="stat-info">
+                            <span class="stat-value" id="todayActive">0</span>
+                            <span class="stat-label">今日活跃</span>
+                            <span class="stat-trend" id="todayActiveTrend"></span>
+                        </div>
+                    </div>
+                </div>
+                <div class="chart-placeholder">
+                    <h3>近7日新增用户趋势</h3>
+                    <canvas id="userTrendChart"></canvas>
+                </div>
+                <div class="css-charts-grid">
+                    <div class="chart-placeholder css-chart-block">
+                        <h3>近7日新增用户（柱状图）</h3>
+                        <div id="cssBarChart" class="bar-chart"></div>
+                    </div>
+                    <div class="chart-placeholder css-chart-block">
+                        <h3>用户角色分布（环形图）</h3>
+                        <div class="donut-chart">
+                            <div class="donut-ring" id="donutRing"></div>
+                            <div class="donut-center" id="donutCenter">0</div>
+                        </div>
+                        <div class="donut-legend" id="donutLegend"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 用户管理 -->
+            <section id="tab-users" class="tab-panel">
+                <div class="toolbar">
+                    <input type="text" id="userSearch" placeholder="搜索用户名 / 手机号 / 邮箱 / 账号ID..." class="search-input">
+                    <select id="roleFilter" class="filter-select">
+                        <option value="">全部角色</option>
+                        <option value="super_admin">超级管理员</option>
+                        <option value="admin">管理员</option>
+                        <option value="user">普通用户</option>
+                    </select>
+                    <select id="sortOrder" class="filter-select">
+                        <option value="newest">最新注册</option>
+                        <option value="oldest">最早注册</option>
+                    </select>
+                    <button id="createAdminBtn" onclick="openCreateAdminModal()" class="btn btn-primary btn-sm" style="display:none">新建管理员</button>
+                    <button onclick="exportUserList()" class="btn btn-primary btn-sm">导出CSV</button>
+                    <button onclick="batchToggleUsers(true)" class="btn btn-secondary btn-sm">批量禁用</button>
+                    <button onclick="batchToggleUsers(false)" class="btn btn-secondary btn-sm">批量启用</button>
+                    <button onclick="deleteSelectedUsers()" class="btn btn-danger btn-sm" id="batchDeleteUsersBtn">批量删除</button>
+                </div>
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th><input type="checkbox" id="selectAll"></th>
+                                <th>ID</th>
+                                <th>用户名</th>
+                                <th>昵称</th>
+                                <th>账号</th>
+                                <th>角色</th>
+                                <th>状态</th>
+                                <th>注册时间</th>
+                                <th>最近登录</th>
+                                <th>手机号</th>
+                                <th>邮箱</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="usersTableBody"></tbody>
+                    </table>
+                </div>
+                <div id="pagination" class="pagination"></div>
+            </section>
+
+            <!-- 内容管理 -->
+            <section id="tab-content" class="tab-panel">
+                <div class="toolbar">
+                    <input type="text" id="contentSearch" placeholder="搜索文章..." class="search-input">
+                    <select id="contentTypeFilter" class="filter-select">
+                        <option value="">全部类型</option>
+                        <option value="article">文章</option>
+                        <option value="page">页面</option>
+                    </select>
+                    <select id="contentStatusFilter" class="filter-select">
+                        <option value="">全部状态</option>
+                        <option value="published">已发布</option>
+                        <option value="draft">草稿</option>
+                        <option value="pinned">已置顶</option>
+                        <option value="offline">已下线</option>
+                    </select>
+                    <button onclick="openContentModal()" class="btn btn-primary btn-sm">新建内容</button>
+                    <button onclick="batchContentAction('pin')" class="btn btn-secondary btn-sm">批量置顶</button>
+                    <button onclick="batchContentAction('offline')" class="btn btn-secondary btn-sm">批量下线</button>
+                    <button onclick="batchContentAction('delete')" class="btn btn-danger btn-sm">批量删除</button>
+                </div>
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th><input type="checkbox" id="contentSelectAll"></th>
+                                <th>ID</th>
+                                <th>标题</th>
+                                <th>类型</th>
+                                <th>状态</th>
+                                <th>作者</th>
+                                <th>创建时间</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="contentTableBody"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- 公告管理 -->
+            <section id="tab-announcements" class="tab-panel">
+                <div class="toolbar">
+                    <button onclick="openAnnouncementModal()" class="btn btn-primary btn-sm">发布公告</button>
+                </div>
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>标题</th>
+                                <th>内容</th>
+                                <th>时间</th>
+                                <th>状态</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="announcementsTableBody"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- 留言管理 -->
+            <section id="tab-guestbook" class="tab-panel">
+                <div class="toolbar">
+                    <select id="guestbookStatusFilter" class="filter-select">
+                        <option value="">全部状态</option>
+                        <option value="pending">待处理</option>
+                        <option value="approved">已通过</option>
+                        <option value="hidden">已隐藏</option>
+                    </select>
+                    <input type="text" id="guestbookSearch" placeholder="搜索留言人 / 内容..." class="search-input">
+                    <button onclick="batchGuestbookAction('approve')" class="btn btn-secondary btn-sm">批量通过</button>
+                    <button onclick="batchGuestbookAction('hide')" class="btn btn-secondary btn-sm">批量隐藏</button>
+                    <button onclick="batchGuestbookAction('delete')" class="btn btn-danger btn-sm">批量删除</button>
+                    <button onclick="exportGuestbookList()" class="btn btn-primary btn-sm">导出CSV</button>
+                </div>
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th><input type="checkbox" id="guestbookSelectAll"></th>
+                                <th>ID</th>
+                                <th>留言人</th>
+                                <th>内容</th>
+                                <th>时间</th>
+                                <th>状态</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="guestbookTableBody"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- 反馈管理 -->
+            <section id="tab-feedback" class="tab-panel">
+                <div class="toolbar">
+                    <select id="feedbackStatusFilter" class="filter-select">
+                        <option value="">全部状态</option>
+                        <option value="pending">待处理</option>
+                        <option value="resolved">已解决</option>
+                        <option value="rejected">已驳回</option>
+                    </select>
+                    <button onclick="batchFeedbackAction('resolved')" class="btn btn-secondary btn-sm">批量标记已处理</button>
+                    <button onclick="exportFeedbackList()" class="btn btn-primary btn-sm">导出CSV</button>
+                </div>
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th><input type="checkbox" id="feedbackSelectAll"></th>
+                                <th>ID</th>
+                                <th>标题</th>
+                                <th>内容</th>
+                                <th>提交人</th>
+                                <th>时间</th>
+                                <th>状态</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="feedbackTableBody"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- 相册管理 -->
+            <section id="tab-albums" class="tab-panel">
+                <div class="toolbar">
+                    <span class="page-tip">查看所有用户相册与图片，可删除违规图片或相册。</span>
+                </div>
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>相册名</th>
+                                <th>分类</th>
+                                <th>拥有者</th>
+                                <th>图片数</th>
+                                <th>创建时间</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="albumsTableBody"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- 投票管理 -->
+            <section id="tab-polls" class="tab-panel">
+                <div class="toolbar">
+                    <span class="page-tip">管理全站投票问卷：查看结果、下架/恢复、删除。</span>
+                </div>
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>标题</th>
+                                <th>类型</th>
+                                <th>创建人</th>
+                                <th>参与人数</th>
+                                <th>状态</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="pollsTableBody"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- 文件管理 -->
+            <section id="tab-files" class="tab-panel">
+                <div class="toolbar">
+                    <input type="file" id="fileUpload" multiple style="display:none" onchange="handleFileUpload(this.files)">
+                    <button onclick="document.getElementById('fileUpload').click()" class="btn btn-primary btn-sm">上传文件</button>
+                    <input type="text" id="fileSearch" placeholder="搜索文件名..." class="search-input">
+                    <select id="fileTypeFilter" class="filter-select">
+                        <option value="">全部类型</option>
+                        <option value="image">图片</option>
+                        <option value="document">文档</option>
+                        <option value="other">其他</option>
+                    </select>
+                    <button onclick="batchDeleteFiles()" class="btn btn-danger btn-sm">批量删除</button>
+                </div>
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th><input type="checkbox" id="fileSelectAll"></th>
+                                <th>ID</th>
+                                <th>文件名</th>
+                                <th>类型</th>
+                                <th>大小</th>
+                                <th>上传者</th>
+                                <th>上传时间</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="filesTableBody"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- 消息通知 -->
+            <section id="tab-messages" class="tab-panel">
+                <div class="toolbar">
+                    <button onclick="openMessageModal()" class="btn btn-primary btn-sm">发送站内信</button>
+                    <select id="messageStatusFilter" class="filter-select">
+                        <option value="">全部状态</option>
+                        <option value="unread">未读</option>
+                        <option value="read">已读</option>
+                    </select>
+                </div>
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>标题</th>
+                                <th>发件人</th>
+                                <th>收件人</th>
+                                <th>时间</th>
+                                <th>状态</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="messagesTableBody"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- 系统设置 -->
+            <section id="tab-settings" class="tab-panel">
+                <form id="settingsForm">
+                    <div class="settings-section">
+                        <h3>站点信息</h3>
+                        <div class="form-group">
+                            <label for="siteName">站点名称</label>
+                            <input type="text" id="siteName" maxlength="50">
+                        </div>
+                        <div class="form-group">
+                            <label for="siteDescription">站点描述</label>
+                            <textarea id="siteDescription" rows="3" maxlength="200"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="siteEmail">支持邮箱</label>
+                            <input type="email" id="siteEmail" placeholder="support@mysite.local">
+                        </div>
+                    </div>
+                    <div class="settings-section">
+                        <h3>公告设置</h3>
+                        <div class="form-group">
+                            <label for="announcement">公告内容</label>
+                            <textarea id="announcement" rows="4" maxlength="500"></textarea>
+                        </div>
+                        <div class="form-group checkbox-group">
+                            <label>
+                                <input type="checkbox" id="showAnnouncement"> 显示公告
+                            </label>
+                        </div>
+                    </div>
+                    <div class="settings-section">
+                        <h3>外观设置</h3>
+                        <div class="form-group radio-group">
+                            <label>
+                                <input type="radio" name="theme" value="light" checked> 浅色模式
+                            </label>
+                            <label>
+                                <input type="radio" name="theme" value="dark"> 深色模式
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label for="themeColor">主题色</label>
+                            <input type="color" id="themeColor" value="#667eea">
+                            <span class="page-tip">保存后全站按钮、链接与强调色即时生效（applySiteSettings）。</span>
+                        </div>
+                    </div>
+                    <div class="settings-section" id="backupSection">
+                        <h3>数据备份与恢复</h3>
+                        <div class="form-group">
+                            <label for="siteBackupFile">选择备份文件</label>
+                            <input type="file" id="siteBackupFile" accept=".json" style="display:none" onchange="importSiteData(this.files)">
+                            <input type="text" id="siteBackupFileLabel" readonly placeholder="未选择备份文件" style="width:60%;display:inline-block;">
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('siteBackupFile').click()">选择文件</button>
+                        </div>
+                        <div class="backup-row">
+                            <button type="button" class="btn btn-primary btn-sm" onclick="exportSiteData()">导出站点备份</button>
+                            <button type="button" class="btn btn-secondary btn-sm" id="importBackupBtn" onclick="doImportSiteData()">导入备份并恢复</button>
+                        </div>
+                        <p class="backup-tip">备份包含用户、内容、公告、消息、文件、互动、日志、设置、成长与留言数据；恢复操作会覆盖现有数据，请谨慎执行。</p>
+                    </div>
+                    <button type="submit" class="btn btn-primary">保存设置</button>
+                </form>
+            </section>
+
+            <!-- 操作日志 -->
+            <section id="tab-logs" class="tab-panel">
+                <div class="toolbar">
+                    <select id="logFilter" class="filter-select">
+                        <option value="">全部类型</option>
+                        <option value="login">登录</option>
+                        <option value="register">注册</option>
+                        <option value="delete_user">删除用户</option>
+                        <option value="change_role">角色变更</option>
+                        <option value="update_profile">更新资料</option>
+                        <option value="update_settings">系统设置</option>
+                        <option value="create_content">创建内容</option>
+                        <option value="edit_content">编辑内容</option>
+                        <option value="delete_content">删除内容</option>
+                        <option value="upload_file">上传文件</option>
+                        <option value="download_file">下载文件</option>
+                        <option value="send_message">发送消息</option>
+                    </select>
+                    <input type="text" id="logSearch" class="filter-select" placeholder="搜索操作人 / 详情关键词...">
+                </div>
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>时间</th>
+                                <th>操作人</th>
+                                <th>操作类型</th>
+                                <th>详情</th>
+                            </tr>
+                        </thead>
+                        <tbody id="logsTableBody"></tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- 相册查看弹窗 -->
+    <div id="albumAdminModal" class="modal-overlay">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3>相册详情</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body"></div>
+        </div>
+    </div>
+
+    <!-- 用户详情弹窗 -->
+    <div id="userDetailModal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>用户详情</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body" id="userDetailBody"></div>
+        </div>
+    </div>
+
+    <!-- 内容编辑弹窗 -->
+    <div id="contentModal" class="modal-overlay">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3 id="contentModalTitle">新建内容</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="contentForm">
+                    <div class="form-group">
+                        <label for="contentTitle">标题</label>
+                        <input type="text" id="contentTitle" maxlength="100">
+                    </div>
+                    <div class="form-group">
+                        <label for="contentType">类型</label>
+                        <select id="contentType">
+                            <option value="article">文章</option>
+                            <option value="page">页面</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="contentStatus">状态</label>
+                        <select id="contentStatus">
+                            <option value="draft">草稿</option>
+                            <option value="published">已发布</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="contentBody">正文</label>
+                        <textarea id="contentBody" rows="8" maxlength="5000"></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary">保存</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 消息弹窗 -->
+    <div id="messageModal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>发送站内信</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="messageForm">
+                    <div class="form-group">
+                        <label for="messageRecipient">收件人</label>
+                        <select id="messageRecipient">
+                            <option value="all">所有用户</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="messageSubject">主题</label>
+                        <input type="text" id="messageSubject" maxlength="100">
+                    </div>
+                    <div class="form-group">
+                        <label for="messageBody">内容</label>
+                        <textarea id="messageBody" rows="6" maxlength="1000"></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary">发送</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 公告编辑弹窗 -->
+    <div id="announcementModal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="announcementModalTitle">发布公告</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="announcementForm">
+                    <div class="form-group">
+                        <label for="announcementTitle">标题</label>
+                        <input type="text" id="announcementTitle" maxlength="100">
+                    </div>
+                    <div class="form-group">
+                        <label for="announcementContent">内容</label>
+                        <textarea id="announcementContent" rows="5" maxlength="500"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="announcementStatus">状态</label>
+                        <select id="announcementStatus">
+                            <option value="published">发布</option>
+                            <option value="draft">草稿</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary">保存</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 新建管理员弹窗 -->
+    <div id="createAdminModal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>新建管理员</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="createAdminForm">
+                    <div class="form-group">
+                        <label for="adminUsername">用户名</label>
+                        <input type="text" id="adminUsername" maxlength="6" placeholder="最多6个字符">
+                    </div>
+                    <div class="form-group">
+                        <label for="adminPassword">密码</label>
+                        <input type="password" id="adminPassword" maxlength="50" placeholder="至少6位，含字母和数字">
+                    </div>
+                    <div class="form-group">
+                        <label for="adminNickname">昵称</label>
+                        <input type="text" id="adminNickname" maxlength="20" placeholder="选填">
+                    </div>
+                    <button type="button" onclick="createAdmin()" class="btn btn-primary">创建管理员</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 修改邮箱弹窗 -->
+    <div id="changeEmailModal" class="modal-overlay">
+        <div class="modal-content modal-sm">
+            <div class="modal-header">
+                <h3>配置支持邮箱</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="newEmailInput">邮箱地址</label>
+                    <input type="email" id="newEmailInput" placeholder="请输入邮箱地址">
+                </div>
+                <button type="button" onclick="saveAdminEmail()" class="btn btn-primary">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="auth.js"></script>
+</body>
+</html>

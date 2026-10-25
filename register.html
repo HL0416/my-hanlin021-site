@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>注册</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="auth-page">
+    <div class="auth-container">
+        <h2>用户注册</h2>
+        <form id="registerForm">
+            <div class="form-group">
+                <label for="regUsername">用户名</label>
+                <input type="text" id="regUsername" name="username" required placeholder="请输入用户名（最多6位）" maxlength="6">
+            </div>
+            <div class="form-group">
+                <label for="regPassword">密码</label>
+                <input type="password" id="regPassword" name="password" required placeholder="请输入密码（至少6位，含字母和数字）">
+                <div id="passwordStrength" class="password-hint"></div>
+            </div>
+            <div class="form-group">
+                <label for="confirmPassword">确认密码</label>
+                <input type="password" id="confirmPassword" name="confirmPassword" required placeholder="请再次输入密码">
+            </div>
+            <div class="form-group">
+                <label for="regPhone">手机号 <span class="optional-label">（可选，可用于登录与找回密码）</span></label>
+                <input type="tel" id="regPhone" name="phone" placeholder="请输入11位手机号" maxlength="11">
+            </div>
+            <div class="form-group">
+                <label for="regEmail">邮箱 <span class="optional-label">（可选，可用于登录与找回密码）</span></label>
+                <input type="email" id="regEmail" name="email" placeholder="请输入邮箱地址">
+            </div>
+            <button type="submit" class="btn btn-primary">注 册</button>
+        </form>
+        <p class="auth-link">已有账号？<a href="login.html">返回登录</a></p>
+        <div id="errorMsg" class="error-msg"></div>
+    </div>
+    <script src="auth.js"></script>
+</body>
+</html>

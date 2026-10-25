@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <meta name="theme-color" content="#667eea">
+    <link rel="manifest" href="manifest.json">
+    <title>首页 - 我的站点</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="home-page">
+    <nav class="top-nav top-nav-drawer">
+        <div class="nav-left">
+            <span class="site-brand">我的站点</span>
+        </div>
+        <div class="nav-right">
+            <button id="navToggle" class="nav-toggle" aria-label="菜单">&#9776;</button>
+            <div class="nav-search">
+                <input type="text" id="globalSearchInput" placeholder="搜索内容 / 用户 / 公告..." maxlength="50">
+                <button class="btn btn-primary btn-sm" id="globalSearchBtn">搜索</button>
+            </div>
+            <button id="notifyBell" class="btn btn-ghost btn-sm notify-bell" title="互动通知">
+                通知
+                <span class="notify-count" style="display:none;">0</span>
+            </button>
+            <button id="themeToggle" class="btn btn-ghost btn-sm theme-btn">深色模式</button>
+            <a href="help.html" class="btn btn-ghost btn-sm">帮助中心</a>
+            <div id="adminLink" style="display:none;">
+                <a href="admin.html" class="btn btn-primary btn-sm">进入管理后台</a>
+            </div>
+            <a href="profile.html" class="btn btn-primary btn-sm">个人信息</a>
+            <button id="logoutBtn" class="btn btn-danger btn-sm">退出登录</button>
+        </div>
+    </nav>
+
+    <!-- 统一导航抽屉（手机/平板）：顶部单栏收纳的入口集中于此 -->
+    <div class="nav-drawer" id="navDrawer">
+        <div class="drawer-header">
+            <span class="site-brand">我的站点</span>
+            <button id="drawerCloseBtn" class="drawer-close-btn" aria-label="关闭抽屉">&times;</button>
+        </div>
+        <div class="drawer-body">
+            <div class="drawer-section-title">导航</div>
+            <ul class="drawer-nav">
+                <li><a href="#heroCarousel" class="drawer-link active"><span class="drawer-icon">🏠</span>首页</a></li>
+                <li><a href="#momentFeed" class="drawer-link"><span class="drawer-icon">📝</span>动态广场</a></li>
+                <li><a href="#dailyWordHome" class="drawer-link"><span class="drawer-icon">📔</span>日记心情</a></li>
+                <li><a href="#growth" class="drawer-link"><span class="drawer-icon">🌱</span>成长中心</a></li>
+                <li><a href="profile.html" class="drawer-link"><span class="drawer-icon">👤</span>我的</a></li>
+            </ul>
+            <div class="drawer-section-title">功能</div>
+            <ul class="drawer-nav">
+                <li class="drawer-search-item">
+                    <input type="text" id="drawerSearchInput" placeholder="搜索内容 / 用户 / 公告..." maxlength="50">
+                    <button class="btn btn-primary btn-sm" id="drawerSearchBtn">搜索</button>
+                </li>
+                <li><a href="#" class="drawer-link" id="drawerThemeBtn"><span class="drawer-icon">🌙</span>深色模式</a></li>
+                <li><a href="help.html" class="drawer-link"><span class="drawer-icon">❓</span>帮助中心</a></li>
+                <li><a href="admin.html" class="drawer-link" id="drawerAdminLink" style="display:none;"><span class="drawer-icon">⚙️</span>管理后台</a></li>
+                <li><a href="profile.html" class="drawer-link"><span class="drawer-icon">👤</span>个人信息</a></li>
+                <li><a href="#" class="drawer-link drawer-danger" id="drawerLogoutBtn"><span class="drawer-icon">↪</span>退出登录</a></li>
+            </ul>
+        </div>
+    </div>
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <div class="home-container">
+        <!-- Hero 轮播区 -->
+        <section class="hero-carousel" id="heroCarousel">
+            <div class="hero-slides" id="heroSlides">
+                <div class="hero-slide active">
+                    <div class="hero-inner">
+                        <h2 id="heroWelcomeTitle">欢迎来到我的站点</h2>
+                        <p class="hero-sub">一站式管理你的内容、消息与个人资料，安全又便捷</p>
+                        <a href="profile.html" class="btn btn-primary">完善个人资料</a>
+                    </div>
+                </div>
+                <div class="hero-slide">
+                    <div class="hero-inner">
+                        <h2>安全认证 · 角色权限</h2>
+                        <p class="hero-sub">手机/邮箱绑定、密码强度校验，普通用户与管理员各司其职</p>
+                        <a href="help.html" class="btn btn-secondary">了解更多</a>
+                    </div>
+                </div>
+                <div class="hero-slide">
+                    <div class="hero-inner">
+                        <h2>内容 · 公告 · 互动社区</h2>
+                        <p class="hero-sub">发布留言动态、查看公告通知，管理后台数据一目了然</p>
+                        <a href="#contentList" class="btn btn-secondary">去看看最新内容</a>
+                    </div>
+                </div>
+                <div class="hero-slide">
+                    <div class="hero-inner">
+                        <h2>互动社区 · 点赞评论</h2>
+                        <p class="hero-sub">为喜欢的内容点赞、收藏，发表评论参与讨论，让互动更简单</p>
+                        <a href="#contentList" class="btn btn-secondary">去看看最新内容</a>
+                    </div>
+                </div>
+                <div class="hero-slide">
+                    <div class="hero-inner">
+                        <h2>消息 · 收藏 · 个人动态</h2>
+                        <p class="hero-sub">消息通知中心、内容收藏夹、个人动态时间线，一站管理你的足迹</p>
+                        <a href="profile.html" class="btn btn-secondary">前往个人中心</a>
+                    </div>
+                </div>
+            </div>
+            <button class="hero-arrow hero-prev" id="heroPrev" aria-label="上一张">&#10094;</button>
+            <button class="hero-arrow hero-next" id="heroNext" aria-label="下一张">&#10095;</button>
+            <div class="hero-dots" id="heroDots"></div>
+        </section>
+
+        <!-- 欢迎横幅 -->
+        <section class="welcome-banner">
+            <div class="banner-content">
+                <div id="welcomeAvatar" class="welcome-avatar"></div>
+                <h1 id="welcomeUser"></h1>
+                <div class="banner-tags">
+                    <span id="welcomeTitleBadge" class="banner-title-badge" style="display:none;"></span>
+                    <span id="welcomeBadgeIcon" class="banner-badge-icon" style="display:none;"></span>
+                </div>
+                <p id="welcomeSignature" class="banner-signature"></p>
+                <p id="welcomeDate"></p>
+                <p class="banner-sub">在这里管理你的内容、消息与个人资料</p>
+                <p class="banner-account" id="welcomeAccount"></p>
+                <p class="banner-visit" id="visitInfo"></p>
+            </div>
+        </section>
+
+        <!-- 每日一言 -->
+        <section class="home-section daily-word-strip">
+            <div class="section-header">
+                <h2>每日一言</h2>
+                <span class="section-badge">Daily</span>
+            </div>
+            <div id="dailyWordHome" class="daily-word-box"></div>
+        </section>
+
+        <!-- 公告通知 -->
+        <section class="home-section">
+            <div class="section-header">
+                <h2>公告通知</h2>
+                <span class="section-badge" id="announcementCount">0</span>
+            </div>
+            <div id="announcementList" class="announcement-list"></div>
+            <p id="announcementEmpty" class="empty-tip" style="display:none;">暂无公告</p>
+        </section>
+
+        <!-- 功能特性介绍 -->
+        <section class="home-section">
+            <div class="section-header">
+                <h2>平台特色</h2>
+                <span class="section-badge">Feature</span>
+            </div>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <div class="feature-icon feature-icon-auth">安</div>
+                    <div class="feature-title">安全认证</div>
+                    <div class="feature-desc">手机号/邮箱格式校验、密码强度检测、登录设备管理，全方位守护账号安全。</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon feature-icon-role">权</div>
+                    <div class="feature-title">角色权限</div>
+                    <div class="feature-desc">超级管理员、管理员、普通用户三级权限，后台功能按角色动态开放。</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon feature-icon-content">内</div>
+                    <div class="feature-title">内容管理</div>
+                    <div class="feature-desc">快速发布留言动态，最新内容实时展示，后台统一审核管理。</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon feature-icon-stats">数</div>
+                    <div class="feature-title">数据统计</div>
+                    <div class="feature-desc">管理后台图表可视化，用户、内容、公告、日志数据一屏掌握。</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 快捷功能区 -->
+        <section class="home-section">
+            <div class="section-header">
+                <h2>快捷功能</h2>
+            </div>
+            <div class="quick-actions">
+                <a href="profile.html" class="quick-card">
+                    <div class="quick-icon quick-icon-profile">资</div>
+                    <div class="quick-title">个人资料</div>
+                    <div class="quick-desc">完善你的个人资料信息</div>
+                </a>
+                <a href="profile.html#task" class="quick-card">
+                    <div class="quick-icon quick-icon-task">任</div>
+                    <div class="quick-title">任务中心</div>
+                    <div class="quick-desc">每日任务领积分，商城兑换装扮</div>
+                </a>
+                <a href="profile.html#albums" class="quick-card">
+                    <div class="quick-icon quick-icon-album">相</div>
+                    <div class="quick-title">我的相册</div>
+                    <div class="quick-desc">上传照片，打造个人画廊</div>
+                </a>
+                <a href="profile.html#polls" class="quick-card">
+                    <div class="quick-icon quick-icon-poll">投</div>
+                    <div class="quick-title">投票问卷</div>
+                    <div class="quick-desc">发起投票，参与热点讨论</div>
+                </a>
+                <a href="profile.html#friends" class="quick-card">
+                    <div class="quick-icon quick-icon-friend">友</div>
+                    <div class="quick-title">好友私信</div>
+                    <div class="quick-desc">好友申请与站内私信</div>
+                </a>
+                <a href="profile.html#diary" class="quick-card">
+                    <div class="quick-icon quick-icon-diary">记</div>
+                    <div class="quick-title">日记心情</div>
+                    <div class="quick-desc">每日一言与心情日记</div>
+                </a>
+                <a href="profile.html#growth" class="quick-card">
+                    <div class="quick-icon quick-icon-growth">成</div>
+                    <div class="quick-title">成长中心</div>
+                    <div class="quick-desc">签到日历与成就徽章</div>
+                </a>
+                <a href="profile.html#social" class="quick-card">
+                    <div class="quick-icon quick-icon-moment">动</div>
+                    <div class="quick-title">我的动态</div>
+                    <div class="quick-desc">发布动态与关注管理</div>
+                </a>
+                <div class="quick-card quick-card-btn" id="quickFeedback">
+                    <div class="quick-icon quick-icon-feedback">反</div>
+                    <div class="quick-title">快速反馈</div>
+                    <div class="quick-desc">提交意见反馈 / 建议</div>
+                </div>
+                <a href="help.html" class="quick-card">
+                    <div class="quick-icon quick-icon-help">帮</div>
+                    <div class="quick-title">帮助中心</div>
+                    <div class="quick-desc">常见问题与使用指南</div>
+                </a>
+                <a href="#" class="quick-card" onclick="window.scrollTo({top:0,behavior:'smooth'});return false;">
+                    <div class="quick-icon quick-icon-top">回</div>
+                    <div class="quick-title">回到顶部</div>
+                    <div class="quick-desc">返回页面顶部</div>
+                </a>
+            </div>
+        </section>
+
+        <!-- 反馈展示区 -->
+        <section class="home-section">
+            <div class="section-header">
+                <h2>用户反馈</h2>
+                <span class="section-badge" id="feedbackCount">0</span>
+            </div>
+            <div id="feedbackList" class="feedback-list"></div>
+            <p id="feedbackEmpty" class="empty-tip" style="display:none;">暂无反馈，快来提出你的建议吧</p>
+        </section>
+
+        <!-- 留言板 -->
+        <section class="home-section">
+            <div class="section-header">
+                <h2>访客留言板</h2>
+                <span class="section-badge">互动</span>
+            </div>
+            <div class="guestbook-box">
+                <div class="guestbook-form">
+                    <input type="text" id="guestbookInput" placeholder="留下你的足迹或建议（200字以内）..." maxlength="200">
+                    <button class="btn btn-primary" id="guestbookSubmitBtn">留言</button>
+                </div>
+                <div id="guestbookList" class="guestbook-list"></div>
+                <p id="guestbookEmpty" class="guestbook-empty">还没有留言，来抢沙发吧～</p>
+            </div>
+        </section>
+
+        <!-- 最新内容 -->
+        <section class="home-section">
+            <div class="section-header">
+                <h2>最新内容</h2>
+            </div>
+            <div id="contentList" class="content-list"></div>
+            <p id="contentEmpty" class="empty-tip">暂无内容，快来发布第一条吧</p>
+        </section>
+
+        <!-- 动态广场 -->
+        <section class="home-section">
+            <div class="section-header">
+                <h2>动态广场</h2>
+                <span class="section-badge">Moments</span>
+            </div>
+            <div class="moment-post-box">
+                <textarea id="homeMomentInput" rows="2" placeholder="发布一条动态，分享此刻的想法..." maxlength="500"></textarea>
+                <button class="btn btn-primary btn-sm" onclick="window.publishMoment(document.getElementById('homeMomentInput').value)">发布</button>
+            </div>
+            <div id="momentFeed" class="moments-list"></div>
+            <p id="momentFeedEmpty" class="empty-tip" style="display:none;">还没有动态，来发布第一条吧</p>
+        </section>
+
+        <!-- 投票问卷区 -->
+        <section class="home-section">
+            <div class="section-header">
+                <h2>投票问卷</h2>
+                <span class="section-badge">互动</span>
+            </div>
+            <div id="pollList" class="poll-list"></div>
+            <p id="pollEmpty" class="empty-tip" style="display:none;">暂无投票，去个人中心发起第一个投票吧</p>
+        </section>
+
+        <!-- 相册画廊区 -->
+        <section class="home-section">
+            <div class="section-header">
+                <h2>相册画廊</h2>
+                <span class="section-badge">Gallery</span>
+            </div>
+            <div id="albumMasonry" class="album-masonry"></div>
+            <p id="albumMasonryEmpty" class="empty-tip" style="display:none;">还没有照片，去个人中心上传第一张吧</p>
+        </section>
+    </div>
+
+    <!-- 手机端底部导航 -->
+    <nav class="bottom-nav" id="bottomNav">
+        <a href="#heroCarousel" class="bottom-nav-item active">
+            <span class="bottom-nav-icon">🏠</span>
+            <span class="bottom-nav-label">首页</span>
+        </a>
+        <a href="#momentFeed" class="bottom-nav-item">
+            <span class="bottom-nav-icon">📝</span>
+            <span class="bottom-nav-label">动态</span>
+        </a>
+        <a href="#" class="bottom-nav-item" id="bottomMsgTab">
+            <span class="bottom-nav-icon">🔔</span>
+            <span class="bottom-nav-label">消息</span>
+        </a>
+        <a href="#growth" class="bottom-nav-item">
+            <span class="bottom-nav-icon">🌱</span>
+            <span class="bottom-nav-label">成长</span>
+        </a>
+        <a href="profile.html" class="bottom-nav-item">
+            <span class="bottom-nav-icon">👤</span>
+            <span class="bottom-nav-label">我的</span>
+        </a>
+    </nav>
+
+    <!-- 悬浮快捷入口（手机/平板）：签到 / 发布动态 / 管理后台 -->
+    <div class="fab-group" id="fabGroup">
+        <a href="profile.html#growth" class="fab-item fab-signin" title="每日签到">
+            <span class="fab-icon">📅</span><span class="fab-label">签到</span>
+        </a>
+        <a href="#" class="fab-item fab-publish" id="fabPublishBtn" title="发布动态">
+            <span class="fab-icon">✏️</span><span class="fab-label">发布</span>
+        </a>
+        <a href="admin.html" class="fab-item fab-admin" id="fabAdminLink" style="display:none;" title="管理后台">
+            <span class="fab-icon">⚙️</span><span class="fab-label">后台</span>
+        </a>
+        <a href="#" class="fab-main" id="fabMain" title="快捷入口">＋</a>
+    </div>
+
+    <!-- 页脚 -->
+    <footer class="site-footer">
+        <div class="footer-inner">
+            <div class="footer-col">
+                <h4>我的站点</h4>
+                <p>一个基于本地存储的纯前端示例站点，包含登录注册、角色权限、内容管理与数据统计等功能。</p>
+            </div>
+            <div class="footer-col">
+                <h4>快速链接</h4>
+                <ul>
+                    <li><a href="index.html">首页</a></li>
+                    <li><a href="profile.html">个人信息</a></li>
+                    <li><a href="help.html">帮助中心</a></li>
+                </ul>
+            </div>
+            <div class="footer-col">
+                <h4>帮助与支持</h4>
+                <ul>
+                    <li><a href="help.html#faqList">常见问题</a></li>
+                    <li><a href="help.html">联系我们</a></li>
+                    <li><a href="about.html">关于我们</a></li>
+                    <li><a href="privacy.html">隐私政策</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <span>© 2026 我的站点 · 纯前端演示项目</span>
+        </div>
+    </footer>
+
+    <!-- 反馈弹窗 -->
+    <div class="modal-overlay" id="feedbackModal">
+        <div class="modal-content">
+            <button class="modal-close" id="feedbackClose">&times;</button>
+            <h3>提交反馈</h3>
+            <label>标题</label>
+            <input type="text" id="feedbackTitle" placeholder="简要描述你的反馈（50字以内）" maxlength="50">
+            <label>详细内容</label>
+            <textarea id="feedbackBody" rows="5" placeholder="详细描述你的建议或问题..." maxlength="500"></textarea>
+            <div class="modal-footer">
+                <button class="btn btn-primary btn-sm" id="feedbackSubmit">提交</button>
+                <button class="btn btn-secondary btn-sm" id="feedbackCancel">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 留言弹窗 -->
+    <div class="modal-overlay" id="composeModal">
+        <div class="modal-content">
+            <button class="modal-close" id="composeClose">&times;</button>
+            <h3>发布留言</h3>
+            <label>标题</label>
+            <input type="text" id="composeTitle" placeholder="给这条留言起个标题">
+            <label>内容</label>
+            <textarea id="composeBody" rows="5" placeholder="写点什么..."></textarea>
+            <div class="modal-footer">
+                <button class="btn btn-primary btn-sm" id="composeSubmit">发布</button>
+                <button class="btn btn-secondary btn-sm" id="composeCancel">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 内容详情弹窗 -->
+    <div class="modal-overlay" id="contentDetailModal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3>内容详情</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body"></div>
+        </div>
+    </div>
+
+    <!-- 投票详情弹窗 -->
+    <div class="modal-overlay" id="pollDetailModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>投票问卷</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body"></div>
+        </div>
+    </div>
+
+    <script src="auth.js"></script>
+    <script>
+    // ===== 统一导航抽屉交互（手机/平板：汉堡打开，遮罩或关闭按钮收起） =====
+    (function() {
+        var drawer = document.getElementById('navDrawer');
+        var overlay = document.getElementById('sidebarOverlay');
+        var toggleBtn = document.getElementById('navToggle');
+        var closeBtn = document.getElementById('drawerCloseBtn');
+        if (!drawer || !overlay || !toggleBtn) return;
+
+        function openDrawer() {
+            drawer.classList.add('open');
+            overlay.classList.add('show');
+        }
+        function closeDrawer() {
+            drawer.classList.remove('open');
+            overlay.classList.remove('show');
+        }
+
+        toggleBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            // 移除 auth.js 响应式导航遗留的顶部下拉面板状态
+            var navRight = document.querySelector('.top-nav .nav-right');
+            if (navRight) navRight.classList.remove('nav-open');
+            if (drawer.classList.contains('open')) {
+                closeDrawer();
+            } else {
+                openDrawer();
+            }
+        });
+        overlay.addEventListener('click', closeDrawer);
+        if (closeBtn) closeBtn.addEventListener('click', closeDrawer);
+
+        // 点击页内锚点链接后自动收起抽屉
+        drawer.querySelectorAll('.drawer-link').forEach(function(link) {
+            link.addEventListener('click', function() {
+                if (this.getAttribute('href').charAt(0) === '#') closeDrawer();
+            });
+        });
+
+        // 管理后台入口与登录态联动（auth.js 控制 #adminLink 显示）
+        function syncAdminLink() {
+            var adminLink = document.getElementById('adminLink');
+            var drawerAdmin = document.getElementById('drawerAdminLink');
+            if (adminLink && drawerAdmin) {
+                drawerAdmin.style.display = (adminLink.style.display === 'block') ? 'flex' : 'none';
+            }
+        }
+        setTimeout(syncAdminLink, 300);
+        setInterval(syncAdminLink, 2000);
+
+        // 抽屉内深色模式 / 退出登录：复用原顶部按钮的事件绑定
+        var themeBtn = document.getElementById('drawerThemeBtn');
+        if (themeBtn) {
+            themeBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                var t = document.getElementById('themeToggle');
+                if (t) t.click();
+            });
+        }
+        var logoutBtn = document.getElementById('drawerLogoutBtn');
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                var l = document.getElementById('logoutBtn');
+                if (l) l.click();
+            });
+        }
+
+        // 抽屉内搜索：写入原搜索框后复用全局搜索逻辑
+        var drawerSearchBtn = document.getElementById('drawerSearchBtn');
+        var drawerSearchInput = document.getElementById('drawerSearchInput');
+        function runDrawerSearch() {
+            if (!drawerSearchInput) return;
+            var val = drawerSearchInput.value.trim();
+            if (!val) { drawerSearchInput.focus(); return; }
+            var input = document.getElementById('globalSearchInput');
+            if (input) input.value = val;
+            if (window.doGlobalSearch) window.doGlobalSearch();
+        }
+        if (drawerSearchBtn) drawerSearchBtn.addEventListener('click', runDrawerSearch);
+        if (drawerSearchInput) {
+            drawerSearchInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') runDrawerSearch();
+            });
+        }
+    })();
+
+    // ===== 首页内容区分组重排：欢迎/每日一言 → 快捷功能 → 公告 → 最新内容 → 动态广场 → 投票 → 相册 =====
+    (function() {
+        var container = document.querySelector('.home-container');
+        if (!container) return;
+        var order = [
+            '.hero-carousel',
+            '.welcome-banner',
+            '.daily-word-strip',
+            'section:has(.quick-actions)',
+            'section:has(#announcementList)',
+            'section:has(#contentList)',
+            'section:has(#momentFeed)',
+            'section:has(#pollList)',
+            'section:has(#albumMasonry)',
+            'section:has(#guestbookList)',
+            'section:has(#feedbackList)',
+            'section:has(.feature-grid)'
+        ];
+        for (var i = 0; i < order.length; i++) {
+            var el = container.querySelector(order[i]);
+            if (el) container.appendChild(el);
+        }
+    })();
+
+    // ===== 底部导航栏高亮（按重排后区域顺序） =====
+    (function() {
+        var bottomNav = document.getElementById('bottomNav');
+        if (!bottomNav) return;
+        var items = bottomNav.querySelectorAll('.bottom-nav-item');
+        var sections = ['heroCarousel', 'momentFeed', 'announcementList'];
+
+        window.addEventListener('scroll', function() {
+            var scrollPos = window.scrollY + 100;
+            for (var i = 0; i < items.length; i++) items[i].classList.remove('active');
+            var hit = -1;
+            for (var i = 0; i < sections.length; i++) {
+                var el = document.getElementById(sections[i]);
+                if (el) {
+                    var top = el.offsetTop;
+                    if (scrollPos >= top && scrollPos < top + el.offsetHeight) {
+                        hit = i;
+                        break;
+                    }
+                }
+            }
+            if (hit >= 0) {
+                items[hit].classList.add('active');
+            } else if (scrollPos < (document.getElementById('heroCarousel') || { offsetTop: 0 }).offsetTop) {
+                items[0].classList.add('active');
+            }
+        });
+
+        for (var i = 0; i < items.length; i++) {
+            items[i].addEventListener('click', function() {
+                for (var j = 0; j < items.length; j++) items[j].classList.remove('active');
+                this.classList.add('active');
+            });
+        }
+    })();
+
+    // ===== 通知下拉面板（铃铛 / 底部消息 Tab） =====
+    (function() {
+        var panel = document.getElementById('notifyPanel');
+        var bell = document.getElementById('notifyBell');
+        var msgTab = document.getElementById('bottomMsgTab');
+        var closeBtn = document.getElementById('notifyPanelClose');
+        if (!panel || !bell) return;
+
+        function renderNotify() {
+            var body = document.getElementById('notifyPanelBody');
+            if (!body) return;
+            var list = [];
+            try {
+                var raw = localStorage.getItem('messages');
+                if (raw) {
+                    var arr = JSON.parse(raw);
+                    if (Array.isArray(arr)) list = arr;
+                }
+            } catch (e) { list = []; }
+            list.sort(function(a, b) { return (b.time || '').localeCompare(a.time || ''); });
+            var recent = list.slice(0, 6);
+            if (!recent.length) {
+                body.innerHTML = '<p class="notify-panel-empty">暂无新通知</p>';
+                return;
+            }
+            var html = '';
+            recent.forEach(function(m) {
+                var typeText = (m.type === 'like') ? '点赞' : (m.type === 'comment' ? '评论' : (m.type === 'system' ? '系统' : '互动'));
+                html += '<div class="notify-panel-item"><span class="notify-type">' + typeText + '</span><span class="notify-panel-text">' + (m.content || '') + '</span></div>';
+            });
+            body.innerHTML = html;
+        }
+
+        function togglePanel() {
+            if (panel.classList.contains('open')) {
+                panel.classList.remove('open');
+            } else {
+                renderNotify();
+                panel.classList.add('open');
+            }
+        }
+        bell.addEventListener('click', function(e) { e.stopPropagation(); togglePanel(); });
+        if (closeBtn) closeBtn.addEventListener('click', function() { panel.classList.remove('open'); });
+        if (msgTab) {
+            msgTab.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                var navs = document.querySelectorAll('.bottom-nav-item');
+                for (var i = 0; i < navs.length; i++) navs[i].classList.remove('active');
+                this.classList.add('active');
+                togglePanel();
+            });
+        }
+        document.addEventListener('click', function(e) {
+            if (panel.classList.contains('open') && !panel.contains(e.target) && e.target !== bell) {
+                panel.classList.remove('open');
+            }
+        });
+        window._refreshNotifyPanel = renderNotify;
+    })();
+
+    // ===== 悬浮快捷入口（手机/平板）：主按钮展开 + 发布动态滚动到输入框 =====
+    (function() {
+        var fabMain = document.getElementById('fabMain');
+        var fabGroup = document.getElementById('fabGroup');
+        var fabPublish = document.getElementById('fabPublishBtn');
+        if (fabMain && fabGroup) {
+            fabMain.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                fabGroup.classList.toggle('expanded');
+            });
+            document.addEventListener('click', function(e) {
+                if (fabGroup && fabGroup.classList.contains('expanded') && !fabGroup.contains(e.target)) {
+                    fabGroup.classList.remove('expanded');
+                }
+            });
+        }
+        if (fabPublish) {
+            fabPublish.addEventListener('click', function(e) {
+                e.preventDefault();
+                var area = document.getElementById('momentFeed');
+                if (area) {
+                    area.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    setTimeout(function() {
+                        var inp = document.getElementById('homeMomentInput');
+                        if (inp) inp.focus();
+                    }, 400);
+                }
+                if (fabGroup) fabGroup.classList.remove('expanded');
+            });
+        }
+        // 管理后台悬浮入口与登录态联动
+        function syncFabAdmin() {
+            var adminLink = document.getElementById('adminLink');
+            var fabAdmin = document.getElementById('fabAdminLink');
+            if (adminLink && fabAdmin) {
+                fabAdmin.style.display = (adminLink.style.display === 'block') ? 'inline-flex' : 'none';
+            }
+        }
+        setTimeout(syncFabAdmin, 300);
+        setInterval(syncFabAdmin, 2000);
+    })();
+    </script>
+</body>
+</html>

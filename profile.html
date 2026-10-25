@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <meta name="theme-color" content="#667eea">
+    <link rel="manifest" href="manifest.json">
+    <title>个人信息</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="profile-page">
+    <nav class="top-nav top-nav-drawer">
+        <div class="nav-left">
+            <span class="site-brand">我的站点</span>
+        </div>
+        <div class="nav-right">
+            <button id="navToggle" class="nav-toggle" aria-label="菜单">&#9776;</button>
+            <button id="themeToggle" class="btn btn-ghost btn-sm theme-btn">深色模式</button>
+            <a href="index.html" class="btn btn-primary btn-sm">返回首页</a>
+        </div>
+    </nav>
+
+    <!-- 统一导航抽屉（手机/平板） -->
+    <div class="nav-drawer" id="navDrawer">
+        <div class="drawer-header">
+            <span class="site-brand">我的站点</span>
+            <button id="drawerCloseBtn" class="drawer-close-btn" aria-label="关闭抽屉">&times;</button>
+        </div>
+        <div class="drawer-body">
+            <div class="drawer-section-title">导航</div>
+            <ul class="drawer-nav">
+                <li><a href="index.html#heroCarousel" class="drawer-link"><span class="drawer-icon">🏠</span>首页</a></li>
+                <li><a href="index.html#momentFeed" class="drawer-link"><span class="drawer-icon">📝</span>动态广场</a></li>
+                <li><a href="index.html#dailyWordHome" class="drawer-link"><span class="drawer-icon">📔</span>日记心情</a></li>
+                <li><a href="index.html#growth" class="drawer-link"><span class="drawer-icon">🌱</span>成长中心</a></li>
+                <li><a href="#panel-personal" class="drawer-link active"><span class="drawer-icon">👤</span>我的资料</a></li>
+            </ul>
+            <div class="drawer-section-title">功能</div>
+            <ul class="drawer-nav">
+                <li><a href="#" class="drawer-link" id="drawerThemeBtn"><span class="drawer-icon">🌙</span>深色模式</a></li>
+                <li><a href="help.html" class="drawer-link"><span class="drawer-icon">❓</span>帮助中心</a></li>
+                <li><a href="index.html" class="drawer-link"><span class="drawer-icon">↩</span>返回首页</a></li>
+            </ul>
+        </div>
+    </div>
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <div class="profile-container">
+        <h1>个人信息</h1>
+
+        <!-- 资料完成度 -->
+        <div class="completion-wrap">
+            <div class="completion-label">
+                <span>资料完成度</span>
+                <span id="completionPercent">0%</span>
+            </div>
+            <div class="completion-track">
+                <div id="completionBar" class="completion-fill" style="width:0%"></div>
+            </div>
+        </div>
+
+        <!-- 头像区域 -->
+        <div class="avatar-section">
+            <div id="avatarPreview" class="avatar-preview"></div>
+            <div class="avatar-actions">
+                <label class="btn btn-secondary btn-sm upload-btn">
+                    上传头像
+                    <input type="file" id="avatarFileInput" accept="image/*" hidden>
+                </label>
+                <button class="btn btn-secondary btn-sm" id="avatarLibraryBtn" type="button">选择内置头像</button>
+                <p class="avatar-hint">可上传本地图片（自动压缩保存）、选择内置头像，或在下方输入图片 URL</p>
+            </div>
+        </div>
+
+        <!-- 标签页导航 -->
+        <div class="profile-tabs">
+            <button class="tab-btn active" data-tab="personal">个人资料</button>
+            <button class="tab-btn" data-tab="task">任务中心</button>
+            <button class="tab-btn" data-tab="albums">相册画廊</button>
+            <button class="tab-btn" data-tab="polls">投票问卷</button>
+            <button class="tab-btn" data-tab="security">账号与安全</button>
+            <button class="tab-btn" data-tab="messages">消息中心</button>
+            <button class="tab-btn" data-tab="favorites">我的收藏</button>
+            <button class="tab-btn" data-tab="timeline">个人动态</button>
+            <button class="tab-btn" data-tab="friends">好友私信</button>
+            <button class="tab-btn" data-tab="diary">日记心情</button>
+            <button class="tab-btn" data-tab="track">收藏足迹</button>
+            <button class="tab-btn" data-tab="growth">成长中心</button>
+            <button class="tab-btn" data-tab="social">关注动态</button>
+        </div>
+
+        <!-- ========== 个人资料 ========== -->
+        <div class="tab-panel active" id="panel-personal">
+            <!-- 成长中心 -->
+            <div class="growth-card" id="growthCard">
+                <div class="growth-level-wrap">
+                    <div class="growth-level-badge" id="growthLevelBadge">Lv.1</div>
+                    <div class="growth-info">
+                        <div class="growth-level-name" id="growthLevelName">新手</div>
+                        <div class="growth-points">积分 <b id="growthPoints">0</b> · 连续签到 <b id="growthStreak">0</b> 天</div>
+                    </div>
+                </div>
+                <div class="growth-actions">
+                    <button class="btn btn-primary btn-sm" id="growthSigninBtn">今日签到 +5</button>
+                    <span class="growth-signin-tip" id="growthSigninTip"></span>
+                </div>
+                <div class="growth-progress">
+                    <div class="growth-progress-track"><div class="growth-progress-fill" id="growthProgressFill" style="width:0%"></div></div>
+                    <span class="growth-progress-text" id="growthProgressText">0 / 100</span>
+                </div>
+            </div>
+
+            <form id="profileForm">
+                <div class="form-group">
+                    <label for="profileAccountId">账号</label>
+                    <input type="text" id="profileAccountId" readonly disabled placeholder="注册时自动生成的唯一账号ID">
+                </div>
+                <div class="form-group">
+                    <label for="profileUsername">用户名</label>
+                    <input type="text" id="profileUsername" readonly disabled placeholder="用户名不可修改">
+                </div>
+                <div class="form-group">
+                    <label for="profileNickname">昵称</label>
+                    <input type="text" id="profileNickname" required placeholder="请输入昵称（最多20个字符）">
+                </div>
+                <div class="form-group">
+                    <label for="profileAvatarUrl">头像 URL</label>
+                    <input type="url" id="profileAvatarUrl" placeholder="输入图片链接地址">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="profileGender">性别</label>
+                        <select id="profileGender">
+                            <option value="">未填写</option>
+                            <option value="男">男</option>
+                            <option value="女">女</option>
+                            <option value="保密">保密</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="profileBirthday">生日</label>
+                        <input type="date" id="profileBirthday">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="profileLocation">所在地</label>
+                    <input type="text" id="profileLocation" placeholder="如：广东 深圳">
+                </div>
+                <div class="form-group">
+                    <label for="profileBio">个人简介</label>
+                    <textarea id="profileBio" rows="4" maxlength="500" placeholder="介绍一下自己吧..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="profilePhone">手机号</label>
+                    <input type="tel" id="profilePhone" placeholder="请输入11位手机号（可用于登录与找回密码）" maxlength="11">
+                </div>
+                <div class="form-group">
+                    <label for="profileEmail">邮箱</label>
+                    <input type="email" id="profileEmail" placeholder="请输入邮箱地址（可用于登录与找回密码）">
+                </div>
+                <button type="submit" class="btn btn-primary">保存修改</button>
+            </form>
+
+            <!-- 个人装扮 -->
+            <section class="security-section">
+                <h3>个人装扮</h3>
+                <p class="security-hint">设置个性签名、头像框与首页背景主题色，保存后全站生效。</p>
+                <div id="dressingPanel"></div>
+            </section>
+        </div>
+
+        <!-- ========== 账号与安全 ========== -->
+        <div class="tab-panel" id="panel-security">
+
+            <!-- 修改密码 -->
+            <section class="security-section">
+                <h3>修改密码</h3>
+                <form id="changePasswordForm">
+                    <div class="form-group">
+                        <label for="currentPassword">原密码</label>
+                        <input type="password" id="currentPassword" required placeholder="请输入原密码">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="newPassword">新密码</label>
+                            <input type="password" id="newPassword" required placeholder="至少6位，含字母和数字">
+                        </div>
+                        <div class="form-group">
+                            <label for="confirmNewPassword">确认新密码</label>
+                            <input type="password" id="confirmNewPassword" required placeholder="再次输入新密码">
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">修改密码</button>
+                </form>
+            </section>
+
+            <!-- 绑定手机/邮箱 -->
+            <section class="security-section">
+                <h3>绑定手机 / 邮箱</h3>
+                <div class="binding-list">
+                    <div class="binding-item">
+                        <span class="binding-label">手机号</span>
+                        <span class="binding-value" id="secPhoneDisplay">未绑定</span>
+                        <div class="binding-actions">
+                            <button class="btn btn-secondary btn-sm sec-bind-phone-btn" id="secBindPhoneBtn">绑定</button>
+                            <button class="btn btn-danger btn-sm sec-unbind-phone-btn" id="secUnbindPhoneBtn" style="display:none;">解绑</button>
+                        </div>
+                    </div>
+                    <div class="binding-item">
+                        <span class="binding-label">邮箱</span>
+                        <span class="binding-value" id="secEmailDisplay">未绑定</span>
+                        <div class="binding-actions">
+                            <button class="btn btn-secondary btn-sm sec-bind-email-btn" id="secBindEmailBtn">绑定</button>
+                            <button class="btn btn-danger btn-sm sec-unbind-email-btn" id="secUnbindEmailBtn" style="display:none;">解绑</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 登录设备管理 -->
+            <section class="security-section">
+                <h3>登录设备管理</h3>
+                <p class="security-hint">以下显示最近登录的设备信息，可踢出其他设备的登录会话。</p>
+                <table class="device-table">
+                    <thead>
+                        <tr><th>设备类型</th><th>IP 地址</th><th>登录时间</th><th>状态</th><th>操作</th></tr>
+                    </thead>
+                    <tbody id="deviceTableBody"></tbody>
+                </table>
+                <p id="deviceEmpty" class="empty-tip" style="display:none;">暂无设备记录</p>
+            </section>
+
+            <!-- 操作日志 -->
+            <section class="security-section">
+                <h3>操作日志</h3>
+                <p class="security-hint">记录你的账号操作历史。</p>
+                <table class="log-table">
+                    <thead>
+                        <tr><th>时间</th><th>操作</th><th>详情</th></tr>
+                    </thead>
+                    <tbody id="userLogTableBody"></tbody>
+                </table>
+                <p id="logEmpty" class="empty-tip" style="display:none;">暂无操作日志</p>
+            </section>
+
+            <!-- 危险操作：注销账号 -->
+            <section class="security-section" id="dangerZone">
+                <h3>危险操作</h3>
+                <p class="security-hint">注销账号后将永久删除你的账号及个人数据，此操作不可恢复，请谨慎操作。</p>
+                <button type="button" class="btn btn-danger" id="deleteAccountBtn">注销账号</button>
+            </section>
+        </div>
+
+        <!-- ========== 任务中心 ========== -->
+        <div class="tab-panel" id="panel-task">
+            <section class="security-section">
+                <h3>每日任务</h3>
+                <p class="security-hint">完成任务领取积分，积分可在商城兑换徽章与称号。</p>
+                <div id="taskCenterPanel"></div>
+            </section>
+        </div>
+
+        <!-- ========== 相册画廊 ========== -->
+        <div class="tab-panel" id="panel-albums">
+            <section class="security-section">
+                <h3>创建相册</h3>
+                <div class="album-create-form">
+                    <input type="text" id="albumNameInput" placeholder="相册名称" maxlength="30">
+                    <input type="text" id="albumCategoryInput" placeholder="分类（如：旅行/美食/日常）" maxlength="20">
+                    <button class="btn btn-primary btn-sm" onclick="window.createAlbum()">创建相册</button>
+                </div>
+                <p id="myAlbumsEmpty" class="empty-tip" style="display:none;">还没有相册，先创建一个吧</p>
+                <div id="myAlbumsList" class="my-albums-list"></div>
+            </section>
+        </div>
+
+        <!-- ========== 投票问卷 ========== -->
+        <div class="tab-panel" id="panel-polls">
+            <section class="security-section">
+                <h3>创建投票</h3>
+                <div class="form-group">
+                    <label for="pollTitleInput">投票标题</label>
+                    <input type="text" id="pollTitleInput" placeholder="投票主题（如：周末团建去哪玩？）" maxlength="50">
+                </div>
+                <div class="form-group">
+                    <label for="pollDescInput">投票说明</label>
+                    <input type="text" id="pollDescInput" placeholder="补充说明（可选）" maxlength="200">
+                </div>
+                <div class="form-group">
+                    <label for="pollTypeInput">投票类型</label>
+                    <select id="pollTypeInput">
+                        <option value="single">单选</option>
+                        <option value="multi">多选</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="pollOptionsInput">投票选项（每行一个，2~10 个）</label>
+                    <textarea id="pollOptionsInput" rows="5" placeholder="选项一&#10;选项二&#10;选项三" maxlength="300"></textarea>
+                </div>
+                <button class="btn btn-primary btn-sm" onclick="window.createPoll()">发布投票</button>
+                <h3 style="margin-top:20px;">我发起的投票</h3>
+                <p id="myPollsEmpty" class="empty-tip" style="display:none;">还没有发起过投票</p>
+                <div id="myPollsList" class="poll-list"></div>
+            </section>
+        </div>
+
+        <!-- ========== 消息中心 ========== -->
+        <div class="tab-panel" id="panel-messages">
+            <section class="security-section">
+                <h3>互动通知</h3>
+                <p class="security-hint">收到点赞、评论与回复时会在这里提醒。</p>
+                <div id="notificationsList" class="timeline-list"></div>
+                <p id="notificationsEmpty" class="empty-tip" style="display:none;">暂无互动通知</p>
+            </section>
+            <section class="security-section">
+                <h3>我的消息</h3>
+                <p class="security-hint">这里展示管理员通过后台发送给你的站内信，标记已读后可管理未读状态。</p>
+                <div id="userMessagesList" class="timeline-list"></div>
+                <p id="userMessagesEmpty" class="empty-tip" style="display:none;">暂无消息</p>
+            </section>
+        </div>
+
+        <!-- ========== 我的收藏 ========== -->
+        <div class="tab-panel" id="panel-favorites">
+            <section class="security-section">
+                <h3>我的收藏</h3>
+                <p class="security-hint">在首页内容卡片点击"收藏"即可加入收藏夹，点击"取消收藏"可移除。</p>
+                <div id="favoriteList" class="favorite-list"></div>
+                <p id="favoriteEmpty" class="empty-tip" style="display:none;">暂无收藏内容</p>
+            </section>
+        </div>
+
+        <!-- ========== 个人动态 ========== -->
+        <div class="tab-panel" id="panel-timeline">
+            <section class="security-section">
+                <h3>个人动态</h3>
+                <p class="security-hint">你的登录、发布、点赞、评论、收藏等操作都会记录在这里。</p>
+                <div id="activityTimeline" class="timeline-list"></div>
+                <p id="timelineEmpty" class="empty-tip" style="display:none;">暂无动态</p>
+            </section>
+        </div>
+
+        <!-- ========== 好友私信 ========== -->
+        <div class="tab-panel" id="panel-friends">
+            <section class="security-section">
+                <h3>好友申请</h3>
+                <p class="security-hint">在他人主页或动态中可发送好友申请，收到申请后在此处理。</p>
+                <div id="friendRequests" class="friend-req-list"></div>
+                <p id="friendRequestsEmpty" class="empty-tip" style="display:none;">暂无好友申请</p>
+            </section>
+            <section class="security-section">
+                <h3>我的好友</h3>
+                <p class="security-hint">好友之间可互发私信，可查看在线状态。</p>
+                <div id="friendList" class="friend-list"></div>
+                <p id="friendListEmpty" class="empty-tip" style="display:none;">还没有好友，快去认识新朋友吧</p>
+            </section>
+            <section class="security-section chat-section">
+                <h3>站内私信</h3>
+                <div class="chat-layout">
+                    <div id="chatList" class="chat-list"></div>
+                    <div id="chatView" class="chat-view"></div>
+                </div>
+            </section>
+        </div>
+
+        <!-- ========== 日记与心情 ========== -->
+        <div class="tab-panel" id="panel-diary">
+            <section class="security-section daily-word-section">
+                <h3>每日一言</h3>
+                <div id="dailyWordBox" class="daily-word-box"></div>
+                <div class="daily-word-set">
+                    <input type="text" id="dailyWordInput" placeholder="自定义今日一言（可选）" maxlength="100">
+                    <input type="text" id="dailyWordAuthorInput" placeholder="署名（可选）" maxlength="30">
+                    <button class="btn btn-primary btn-sm" onclick="window.setDailyWord(document.getElementById('dailyWordInput').value,document.getElementById('dailyWordAuthorInput').value)">设置</button>
+                </div>
+            </section>
+            <section class="security-section">
+                <h3>写心情日记</h3>
+                <div class="diary-form">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>日期</label>
+                            <input type="date" id="diaryDateInput">
+                        </div>
+                        <div class="form-group">
+                            <label>心情</label>
+                            <select id="diaryMoodInput">
+                                <option value="happy">开心</option>
+                                <option value="normal">平静</option>
+                                <option value="love">心动</option>
+                                <option value="tired">疲惫</option>
+                                <option value="sad">难过</option>
+                                <option value="angry">生气</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>标题</label>
+                        <input type="text" id="diaryTitleInput" placeholder="给今天的日记起个标题" maxlength="50">
+                    </div>
+                    <div class="form-group">
+                        <label>内容</label>
+                        <textarea id="diaryTextInput" rows="5" placeholder="记录今天的心情与故事..." maxlength="2000"></textarea>
+                    </div>
+                    <button class="btn btn-primary btn-sm" onclick="window.addDiary(document.getElementById('diaryDateInput').value,document.getElementById('diaryMoodInput').value,document.getElementById('diaryTitleInput').value,document.getElementById('diaryTextInput').value)">保存日记</button>
+                </div>
+                <div id="diaryEditBox" class="diary-edit-box" style="display:none;"></div>
+                <h3 style="margin-top:20px;">我的日记</h3>
+                <div id="diaryList" class="diary-list"></div>
+                <p id="diaryEmpty" class="empty-tip" style="display:none;">还没有日记，写下第一篇吧</p>
+            </section>
+            <section class="security-section">
+                <h3>随手记</h3>
+                <p class="security-hint">快速记录灵感与琐事，支持删除。</p>
+                <div class="note-input-row">
+                    <input type="text" id="noteInput" placeholder="随手记点什么..." maxlength="300">
+                    <button class="btn btn-primary btn-sm" onclick="window.addNote(document.getElementById('noteInput').value)">保存</button>
+                </div>
+                <div id="notesList" class="note-list"></div>
+                <p id="notesEmpty" class="empty-tip" style="display:none;">暂无随手记</p>
+            </section>
+        </div>
+
+        <!-- ========== 收藏与足迹 ========== -->
+        <div class="tab-panel" id="panel-track">
+            <section class="security-section">
+                <h3>内容收藏</h3>
+                <p class="security-hint">在首页内容卡片点击"收藏"即可加入收藏夹，支持一键加入稍后读。</p>
+                <div id="favoriteListEx" class="favorite-list"></div>
+                <p id="favoriteExEmpty" class="empty-tip" style="display:none;">暂无收藏内容</p>
+            </section>
+            <section class="security-section">
+                <h3>稍后阅读</h3>
+                <p class="security-hint">将内容加入稍后读，方便以后集中阅读。</p>
+                <div id="readLaterList" class="readlater-list"></div>
+                <p id="readLaterEmpty" class="empty-tip" style="display:none;">暂无稍后阅读内容</p>
+            </section>
+            <section class="security-section">
+                <h3>浏览历史</h3>
+                <div class="section-actions">
+                    <button class="btn btn-danger btn-sm" onclick="window.clearHistory()">清空历史</button>
+                </div>
+                <div id="historyList" class="history-list"></div>
+                <p id="historyEmpty" class="empty-tip" style="display:none;">暂无浏览记录</p>
+            </section>
+        </div>
+
+        <!-- ========== 成长中心 ========== -->
+        <div class="tab-panel" id="panel-growth">
+            <section class="security-section">
+                <h3>等级经验</h3>
+                <div id="growthExPanel"></div>
+            </section>
+            <section class="security-section">
+                <h3>签到日历</h3>
+                <p class="security-hint">每天签到可获得积分，连续签到奖励更多。</p>
+                <div id="signinCalendar" class="signin-calendar"></div>
+                <p id="signinStreakTip" class="security-hint"></p>
+            </section>
+            <section class="security-section">
+                <h3>成就徽章墙</h3>
+                <p id="achievementSummary" class="security-hint"></p>
+                <div id="achievementWall" class="achievement-wall"></div>
+            </section>
+        </div>
+
+        <!-- ========== 关注与动态 ========== -->
+        <div class="tab-panel" id="panel-social">
+            <section class="security-section">
+                <h3>我的关注 <span id="followCount" class="count-badge">0</span></h3>
+                <div id="followList" class="follow-list"></div>
+                <p id="followEmpty" class="empty-tip" style="display:none;">还没有关注任何人</p>
+            </section>
+            <section class="security-section">
+                <h3>我的粉丝 <span id="fansCount" class="count-badge">0</span></h3>
+                <div id="fansList" class="follow-list"></div>
+                <p id="fansEmpty" class="empty-tip" style="display:none;">还没有粉丝</p>
+            </section>
+            <section class="security-section">
+                <h3>我的动态</h3>
+                <div class="moment-post-box">
+                    <textarea id="momentInput" rows="3" placeholder="分享此刻的想法..." maxlength="500"></textarea>
+                    <button class="btn btn-primary btn-sm" onclick="window.publishMoment(document.getElementById('momentInput').value)">发布动态</button>
+                </div>
+                <div id="myMomentsList" class="moments-list"></div>
+            </section>
+        </div>
+
+        <p class="back-link"><a href="index.html">&larr; 返回首页</a></p>
+        <div id="errorMsg" class="error-msg"></div>
+    </div>
+
+    <!-- 绑定手机弹窗 -->
+    <div class="modal-overlay" id="bindPhoneModal">
+        <div class="modal-content">
+            <button class="modal-close" id="bindPhoneClose">&times;</button>
+            <h3>绑定手机</h3>
+            <label>手机号</label>
+            <input type="tel" id="bindPhoneInput" placeholder="请输入11位手机号" maxlength="11">
+            <div class="modal-footer">
+                <button class="btn btn-primary btn-sm" id="bindPhoneSubmit">确认绑定</button>
+                <button class="btn btn-secondary btn-sm" id="bindPhoneCancel">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 绑定邮箱弹窗 -->
+    <div class="modal-overlay" id="bindEmailModal">
+        <div class="modal-content">
+            <button class="modal-close" id="bindEmailClose">&times;</button>
+            <h3>绑定邮箱</h3>
+            <label>邮箱</label>
+            <input type="email" id="bindEmailInput" placeholder="请输入邮箱地址">
+            <div class="modal-footer">
+                <button class="btn btn-primary btn-sm" id="bindEmailSubmit">确认绑定</button>
+                <button class="btn btn-secondary btn-sm" id="bindEmailCancel">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 注销账号确认弹窗 -->
+    <div class="modal-overlay" id="deleteAccountModal">
+        <div class="modal-content">
+            <button class="modal-close" id="deleteAccountClose">&times;</button>
+            <h3>注销账号</h3>
+            <p class="security-hint">注销后将永久删除你的账号及个人数据，此操作不可恢复！</p>
+            <label>登录密码</label>
+            <input type="password" id="deleteAccountPassword" placeholder="请输入当前登录密码以确认身份">
+            <div class="modal-footer">
+                <button class="btn btn-danger btn-sm" id="deleteAccountConfirm">确认注销</button>
+                <button class="btn btn-secondary btn-sm" id="deleteAccountCancel">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 内置头像选择弹窗 -->
+    <div class="modal-overlay" id="avatarLibraryModal">
+        <div class="modal-content">
+            <button class="modal-close" id="avatarLibraryClose">&times;</button>
+            <h3>选择内置头像</h3>
+            <p class="security-hint">点击选择一个喜欢的头像，点击后将自动填入头像 URL。</p>
+            <div class="avatar-library-grid" id="avatarLibraryGrid"></div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary btn-sm" id="avatarLibraryCancel">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 投票详情弹窗 -->
+    <div class="modal-overlay" id="pollDetailModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>投票问卷</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body"></div>
+        </div>
+    </div>
+
+    <!-- 手机端底部导航 -->
+    <nav class="bottom-nav" id="bottomNav">
+        <a href="index.html#heroCarousel" class="bottom-nav-item">
+            <span class="bottom-nav-icon">🏠</span>
+            <span class="bottom-nav-label">首页</span>
+        </a>
+        <a href="index.html#momentFeed" class="bottom-nav-item">
+            <span class="bottom-nav-icon">📝</span>
+            <span class="bottom-nav-label">动态</span>
+        </a>
+        <a href="#messages" class="bottom-nav-item">
+            <span class="bottom-nav-icon">🔔</span>
+            <span class="bottom-nav-label">消息</span>
+        </a>
+        <a href="index.html#growth" class="bottom-nav-item">
+            <span class="bottom-nav-icon">🌱</span>
+            <span class="bottom-nav-label">成长</span>
+        </a>
+        <a href="#top" class="bottom-nav-item active">
+            <span class="bottom-nav-icon">👤</span>
+            <span class="bottom-nav-label">我的</span>
+        </a>
+    </nav>
+
+    <!-- 内容详情弹窗 -->
+    <div class="modal-overlay" id="contentDetailModal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3>内容详情</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body"></div>
+        </div>
+    </div>
+
+    <script src="auth.js"></script>
+    <script>
+    // ===== 统一导航抽屉交互（手机/平板） =====
+    (function() {
+        var drawer = document.getElementById('navDrawer');
+        var overlay = document.getElementById('sidebarOverlay');
+        var toggleBtn = document.getElementById('navToggle');
+        var closeBtn = document.getElementById('drawerCloseBtn');
+        if (!drawer || !overlay || !toggleBtn) return;
+
+        function openDrawer() {
+            drawer.classList.add('open');
+            overlay.classList.add('show');
+        }
+        function closeDrawer() {
+            drawer.classList.remove('open');
+            overlay.classList.remove('show');
+        }
+
+        toggleBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            var navRight = document.querySelector('.top-nav .nav-right');
+            if (navRight) navRight.classList.remove('nav-open');
+            if (drawer.classList.contains('open')) {
+                closeDrawer();
+            } else {
+                openDrawer();
+            }
+        });
+        overlay.addEventListener('click', closeDrawer);
+        if (closeBtn) closeBtn.addEventListener('click', closeDrawer);
+
+        // 抽屉内深色模式：复用原顶部按钮
+        var themeBtn = document.getElementById('drawerThemeBtn');
+        if (themeBtn) {
+            themeBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                var t = document.getElementById('themeToggle');
+                if (t) t.click();
+            });
+        }
+    })();
+
+    // ===== 个人中心分层：头像资料区（头像 + 资料完成度）→ 功能面板网格 → 数据列表 =====
+    (function() {
+        var container = document.querySelector('.profile-container');
+        if (!container) return;
+        var completion = container.querySelector('.completion-wrap');
+        var avatar = container.querySelector('.avatar-section');
+        if (completion && avatar) {
+            avatar.parentNode.insertBefore(completion, avatar.nextSibling);
+        }
+    })();
+
+    // ===== 通知下拉面板（铃铛 / 底部消息 Tab） =====
+    (function() {
+        var panel = document.getElementById('notifyPanel');
+        var bell = document.getElementById('notifyBell');
+        var closeBtn = document.getElementById('notifyPanelClose');
+        var msgTab = document.querySelector('#bottomNav a[href="#messages"]');
+        if (!panel || !bell) return;
+
+        function renderNotify() {
+            var body = document.getElementById('notifyPanelBody');
+            if (!body) return;
+            var list = [];
+            try {
+                var raw = localStorage.getItem('messages');
+                if (raw) {
+                    var arr = JSON.parse(raw);
+                    if (Array.isArray(arr)) list = arr;
+                }
+            } catch (e) { list = []; }
+            list.sort(function(a, b) { return (b.time || '').localeCompare(a.time || ''); });
+            var recent = list.slice(0, 6);
+            if (!recent.length) {
+                body.innerHTML = '<p class="notify-panel-empty">暂无新通知</p>';
+                return;
+            }
+            var html = '';
+            recent.forEach(function(m) {
+                var typeText = (m.type === 'like') ? '点赞' : (m.type === 'comment' ? '评论' : (m.type === 'system' ? '系统' : '互动'));
+                html += '<div class="notify-panel-item"><span class="notify-type">' + typeText + '</span><span class="notify-panel-text">' + (m.content || '') + '</span></div>';
+            });
+            body.innerHTML = html;
+        }
+
+        function togglePanel() {
+            if (panel.classList.contains('open')) {
+                panel.classList.remove('open');
+            } else {
+                renderNotify();
+                panel.classList.add('open');
+            }
+        }
+        bell.addEventListener('click', function(e) { e.stopPropagation(); togglePanel(); });
+        if (closeBtn) closeBtn.addEventListener('click', function() { panel.classList.remove('open'); });
+        if (msgTab) {
+            msgTab.addEventListener('click', function(e) {
+                e.preventDefault();
+                var navs = document.querySelectorAll('#bottomNav .bottom-nav-item');
+                for (var i = 0; i < navs.length; i++) navs[i].classList.remove('active');
+                this.classList.add('active');
+                togglePanel();
+            });
+        }
+        document.addEventListener('click', function(e) {
+            if (panel.classList.contains('open') && !panel.contains(e.target) && e.target !== bell) {
+                panel.classList.remove('open');
+            }
+        });
+    })();
+    </script>
+</body>
+</html>
