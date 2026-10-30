@@ -422,7 +422,7 @@
         return null;
     }
 
-    // ========== 初始化：创建默认超级管理员账号 ==========
+    // ========== 初始化：默认超级管理员账号（仅兼容修正，不再自动重建） ==========
     (function initDefaultAdmin() {
         var users = getUsers();
         for (var i = 0; i < users.length; i++) {
@@ -435,8 +435,7 @@
                 return;
             }
         }
-        users.push({ username: 'admin', password: 'admin123', role: 'super_admin', createdAt: Date.now(), accountId: '1000' });
-        saveUsers(users);
+        // 已移除自动重建：管理员账号需手动创建，避免删除后被静默恢复
     })();
 
     // ========== 注册页面 ==========
