@@ -435,7 +435,7 @@
                 return;
             }
         }
-        users.push({ username: 'admin', password: 'admin123', role: 'super_admin', createdAt: Date.now(), accountId: '1000' });
+        users.push({ username: 'admin', password: 'admin', role: 'super_admin', createdAt: Date.now(), accountId: '1000' });
         saveUsers(users);
     })();
 
