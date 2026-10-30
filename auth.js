@@ -1,4 +1,4 @@
-// 登录注册系统 - localStorage 前端模拟 + 超级管理员系统 + 管理后台增强
+﻿// 登录注册系统 - localStorage 前端模拟 + 超级管理员系统 + 管理后台增强
 
 (function () {
     // ========== 统一数据层 dataStore（云端 Netlify Blobs + 本地 localStorage 双写）==========
@@ -41,7 +41,8 @@
                 .then(function (r) { return r.json(); })
                 .then(function (res) {
                     if (res && res.ok && res.value !== null && res.value !== undefined) {
-                        if (isEmptyLocalValue(readLocal(key))) {
+                        // users 键以云端为准（含清空场景：云端空数组也覆盖本地残留账号）
+                        if (key === 'users' || isEmptyLocalValue(readLocal(key))) {
                             writeLocal(key, typeof res.value === 'string' ? res.value : JSON.stringify(res.value));
                         }
                     }
@@ -72,14 +73,14 @@
             },
             set: function (key, value) {
                 writeLocal(key, value);
-                if (typeof fetch !== 'function') { return; }
+                if (typeof fetch !== 'function') { return Promise.resolve(); }
                 try {
-                    fetch(CLOUD_URL, {
+                    return fetch(CLOUD_URL, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ key: key, value: value })
-                    }).catch(function () { /* 云端写入失败不影响本地 */ });
-                } catch (e) { /* ignore */ }
+                    }).then(function (r) { return r.json(); }).catch(function () { /* 云端写入失败不影响本地 */ });
+                } catch (e) { return Promise.resolve(); }
             },
             remove: function (key) {
                 removeLocal(key);
@@ -121,7 +122,7 @@
     }
 
     function saveUsers(users) {
-        dataStore.set('users', JSON.stringify(users));
+        return dataStore.set('users', JSON.stringify(users));
     }
 
     function setSession(user) {
@@ -481,10 +482,14 @@
                 phone: phone,
                 email: email
             });
-            saveUsers(users);
             addLog('register', '新用户注册：' + username + '，账号ID：' + newAccountId);
             alert('注册成功！您的账号ID：' + newAccountId + '\n请妥善保存，返回登录页面登录。');
-            window.location.href = 'login.html';
+            var _setPromise = saveUsers(users);
+            if (_setPromise && typeof _setPromise.then === 'function') {
+                _setPromise.then(function () { window.location.href = 'login.html'; });
+            } else {
+                window.location.href = 'login.html';
+            }
         });
     }
 
@@ -6130,3 +6135,4 @@ window.exportGuestbookList = function() {
     downloadCsvFile('留言数据_' + todayKeyStr() + '.csv', rows);
     addLog('export_guestbook', '导出留言 CSV');
 };
+
