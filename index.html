@@ -592,7 +592,7 @@
             if (!body) return;
             var list = [];
             try {
-                var raw = localStorage.getItem('messages');
+                var raw = (window.dataStore ? window.dataStore.get('messages') : null) || localStorage.getItem('messages');
                 if (raw) {
                     var arr = JSON.parse(raw);
                     if (Array.isArray(arr)) list = arr;

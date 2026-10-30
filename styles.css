@@ -78,22 +78,26 @@ body {
     color: #ffffff;
 }
 
-/* ========== 个人信息页面 ========== */
+/* ========== 个人信息页面（全屏布局） ========== */
 .profile-page {
     display: flex;
-    align-items: flex-start;
-    justify-content: center;
-    padding: 40px 20px;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    padding: 0;
     background: #f5f7fa;
+    min-height: 100vh;
 }
 
 .profile-container {
     background: #ffffff;
-    border-radius: 12px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    border-radius: 0;
+    box-shadow: none;
     padding: 40px;
-    max-width: 600px;
+    max-width: none;
     width: 100%;
+    flex: 1;
+    min-height: calc(100vh - 60px);
 }
 
 .profile-container h1 {
@@ -369,22 +373,26 @@ tbody tr:hover {
     color: #ffffff;
 }
 
-/* ========== 个人信息页面 ========== */
+/* ========== 个人信息页面（全屏布局） ========== */
 .profile-page {
     display: flex;
-    align-items: flex-start;
-    justify-content: center;
-    padding: 40px 20px;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    padding: 0;
     background: #f5f7fa;
+    min-height: 100vh;
 }
 
 .profile-container {
     background: #ffffff;
-    border-radius: 12px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    border-radius: 0;
+    box-shadow: none;
     padding: 40px;
-    max-width: 600px;
+    max-width: none;
     width: 100%;
+    flex: 1;
+    min-height: calc(100vh - 60px);
 }
 
 .profile-container h1 {
@@ -4665,3 +4673,1375 @@ body.user-themed { background: linear-gradient(135deg, var(--user-accent1), var(
         display: none;
     }
 }
+
+/* =====================================================
+   界面构型拆分增强：电脑版 / 手机平板版 两套界面隔离
+   手机/平板(<=1023px)：移动端规范强化（触控目标44px、iOS输入防缩放、hover禁用、安全区）
+   桌面(>=1024px)：仅桌面交互，彻底隐藏移动专属UI，确认互不干扰
+   ===================================================== */
+
+/* A. 移动端触控目标尺寸规范（手机+平板） */
+@media (max-width: 1023px) {
+    .bottom-nav-item {
+        min-height: 48px;
+        padding: 8px 0;
+    }
+    .bottom-nav-icon { font-size: 22px; }
+    .bottom-nav-label { font-size: 11px; }
+    .nav-toggle {
+        width: 44px; height: 44px;
+        min-width: 44px; min-height: 44px;
+    }
+    .drawer-close-btn {
+        width: 44px; height: 44px;
+        min-width: 44px; min-height: 44px;
+    }
+    .drawer-link {
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+        padding: 12px 14px;
+    }
+    .drawer-section-title { padding-top: 14px; }
+    .admin-mobile-toggle {
+        width: 44px; height: 44px;
+        min-width: 44px; min-height: 44px;
+    }
+    .notify-panel-close {
+        width: 40px; height: 40px;
+        min-width: 40px; min-height: 40px;
+    }
+    .fab-item { min-height: 44px; }
+    .notify-panel-item { min-height: 48px; align-items: center; }
+}
+
+/* B. 移动端输入防 iOS 聚焦缩放（>=16px）+ 按钮触控高度 */
+@media (max-width: 1023px) {
+    .top-nav-drawer .nav-right .nav-search input,
+    .drawer-search-item input,
+    .form-group input,
+    .code-row input,
+    textarea {
+        font-size: 16px;
+    }
+    .form-group input {
+        min-height: 44px;
+        padding: 11px 14px;
+    }
+    .mode-btn {
+        min-height: 44px;
+        font-size: 15px;
+    }
+    .code-row .btn-sm,
+    .btn-sm {
+        min-height: 44px;
+        padding: 0 16px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+}
+
+/* C. 触屏设备禁用粘滞 hover（手机/平板优先触控） */
+@media (hover: none) and (pointer: coarse) {
+    .btn:hover, .btn-ghost:hover, .mode-btn:hover,
+    .bottom-nav-item:hover, .tab-btn:hover, .fab-item:hover,
+    .drawer-link:hover, .notify-panel-item:hover {
+        opacity: 1;
+    }
+}
+
+/* D. 移动端 auth 页（登录/注册/忘记密码）规范适配 */
+@media (max-width: 767px) {
+    .auth-page {
+        min-height: 100vh;
+        padding: 16px;
+        align-items: flex-start;
+        overflow-y: auto;
+    }
+    .auth-container {
+        margin-top: 6vh;
+        padding: 28px 20px;
+        border-radius: 16px;
+        max-width: 100%;
+    }
+    .auth-container h2 {
+        font-size: 22px;
+        margin-bottom: 24px;
+    }
+}
+
+/* E. 安全区与页面底部留白（防底部导航/FAB 遮挡内容） */
+@media (max-width: 1023px) {
+    body.home-page,
+    body.profile-page {
+        padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+    }
+    .fab-group {
+        bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+    }
+}
+
+/* F. 桌面端隔离确认：仅桌面交互，杜绝移动专属UI泄漏 */
+@media (min-width: 1024px) {
+    .nav-drawer, .nav-drawer.open { display: none !important; }
+    .fab-group { display: none !important; }
+    .bottom-nav { display: none !important; }
+    .nav-toggle { display: none !important; }
+    .admin-mobile-bar { display: none !important; }
+    .tablet-sidebar { display: none !important; }
+}
+
+/* G. 手机端单列保证（与平板双列不重叠） */
+@media (max-width: 767px) {
+    .home-container {
+        display: block;
+    }
+    .admin-main { padding: 12px; }
+    .admin-header { padding: 12px 14px; }
+}
+
+
+/* =====================================================
+   电脑版（>=1024px）整体小幅优化
+   仅作用于桌面断点；不改变 HTML 结构与功能逻辑
+   ===================================================== */
+@media (min-width: 1024px) {
+
+    /* 1. 整体布局间距：主容器留白更舒展 */
+    .home-container, .profile-container {
+        padding: 44px 44px 56px !important;
+    }
+    .home-section {
+        padding: 26px 30px;
+        margin-bottom: 26px;
+        border-radius: 16px;
+    }
+    .section-header {
+        margin-bottom: 16px;
+        padding-bottom: 12px;
+    }
+    .site-footer {
+        margin-top: 48px;
+    }
+
+    /* 2. 顶部导航栏：留白与层级微调 */
+    .top-nav {
+        padding: 14px 40px;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.07);
+    }
+    .nav-right {
+        gap: 14px;
+    }
+    .site-brand {
+        font-size: 20px;
+    }
+    .btn-sm {
+        padding: 7px 18px;
+    }
+
+    /* 3. 首页内容区：Hero/横幅/区块标题层级 */
+    .hero-carousel {
+        margin-bottom: 28px;
+    }
+    .welcome-banner {
+        padding: 40px 36px;
+        margin-bottom: 30px;
+        border-radius: 16px;
+    }
+    .welcome-banner h1 {
+        font-size: 30px;
+    }
+    .home-container h1 {
+        font-size: 32px;
+        letter-spacing: -0.5px;
+    }
+    .home-container p {
+        line-height: 1.7;
+    }
+    .section-header h2 {
+        font-size: 18px;
+    }
+    .feature-title {
+        font-size: 17px;
+    }
+    .feature-desc {
+        font-size: 14px;
+    }
+    .hero-sub {
+        font-size: 16px;
+    }
+
+    /* 4. 配色一致性：统一浅色边框与 hover 底色 */
+    .form-group input,
+    .form-group select,
+    .form-group textarea,
+    textarea,
+    .search-input,
+    .filter-select {
+        border-color: #dde1ea;
+    }
+    .form-group input:focus,
+    .form-group select:focus,
+    .form-group textarea:focus,
+    textarea:focus {
+        border-color: #667eea;
+    }
+    .feature-card,
+    .quick-card {
+        border-color: #e8eaf2;
+    }
+    .section-header {
+        border-bottom-color: #e8eaf2;
+    }
+    tbody tr:hover {
+        background: #f5f7fd;
+    }
+    .content-card:hover,
+    .announcement-item:hover {
+        background: #f2f3ff;
+    }
+
+    /* 5. 字体字号层级：标题微调，正文行高统一 */
+    .admin-header h1 {
+        font-size: 26px;
+    }
+    #adminContainer h1,
+    .profile-container h1 {
+        font-size: 30px;
+    }
+
+    /* 6. 登录/注册/忘记密码页 */
+    .auth-container {
+        padding: 46px 44px;
+        max-width: 420px;
+        border-radius: 16px;
+        box-shadow: 0 16px 48px rgba(0, 0, 0, 0.16);
+    }
+    .auth-container h2 {
+        font-size: 26px;
+        margin-bottom: 34px;
+    }
+    .form-group input {
+        padding: 12px 16px;
+        font-size: 15px;
+        border-radius: 8px;
+    }
+    .form-group label {
+        font-size: 14px;
+    }
+
+    /* 7. 后台管理页 */
+    .admin-main {
+        padding: 28px 32px !important;
+    }
+    .admin-header {
+        padding: 22px 36px;
+    }
+    .admin-sidebar .sidebar-header {
+        padding: 24px;
+    }
+    #adminContainer {
+        padding: 48px;
+        max-width: 960px;
+        border-radius: 16px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    }
+    .stat-card,
+    .chart-placeholder,
+    .settings-section {
+        padding: 24px;
+        border-radius: 14px;
+    }
+    thead th {
+        padding: 14px 14px;
+    }
+    tbody td {
+        padding: 12px 14px;
+    }
+}
+/* ========== 桌面端管理后台侧栏微调（仅样式，不改结构/功能） ========== */
+@media (min-width: 1024px) {
+    /* 宽度微调：260px -> 264px，主区同步 */
+    .admin-sidebar {
+        width: 264px;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+    .admin-main {
+        margin-left: 264px;
+    }
+
+    /* 头部：flex 垂直居中，标题间距收紧 */
+    .admin-sidebar .sidebar-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 24px;
+    }
+    .admin-sidebar .sidebar-header h2 {
+        font-size: 17px;
+        margin: 0;
+        letter-spacing: 0.4px;
+    }
+    .admin-sidebar .sidebar-toggle {
+        float: none;
+        font-size: 18px;
+        opacity: 0.85;
+        transition: opacity 0.2s;
+    }
+    .admin-sidebar .sidebar-toggle:hover {
+        opacity: 1;
+    }
+
+    /* 分组标题：补充柔和字号与配色 */
+    .admin-sidebar .sidebar-group-title {
+        padding: 18px 24px 6px;
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        color: rgba(255, 255, 255, 0.55);
+    }
+
+    /* 菜单项：水平内边距与头部对齐，图标宽度对齐 */
+    .admin-sidebar .sidebar-nav {
+        padding: 20px 0;
+    }
+    .admin-sidebar .sidebar-nav li a {
+        padding: 11px 24px;
+        font-size: 14px;
+    }
+    .admin-sidebar .sidebar-nav li a .nav-icon {
+        display: inline-block;
+        width: 22px;
+        text-align: center;
+        vertical-align: -2px;
+        font-size: 15px;
+        line-height: 1;
+    }
+    .admin-sidebar .sidebar-nav li a .nav-text {
+        vertical-align: middle;
+    }
+
+    /* hover / active 态：圆角收边 */
+    .admin-sidebar .sidebar-nav li a:hover {
+        background: rgba(255, 255, 255, 0.12);
+    }
+    .admin-sidebar .sidebar-nav li.active a {
+        background: rgba(255, 255, 255, 0.22);
+        border-left-color: #ffffff;
+        border-radius: 0 8px 8px 0;
+    }
+
+    /* 底部：水平对齐菜单项 */
+    .admin-sidebar .sidebar-footer {
+        padding: 20px 24px;
+    }
+
+    /* 折叠态回退：保持既有居中布局不被上方规则干扰 */
+    .admin-sidebar.collapsed .sidebar-header {
+        display: block;
+    }
+    .admin-sidebar.collapsed .sidebar-nav li a {
+        padding: 12px 20px;
+    }
+}
+
+/* ========== 修复管理后台侧栏滚动（桌面端 >=1024px）：滚动区域限定导航区 ========== */
+@media (min-width: 1024px) {
+    /* 侧栏高度锁定为视口高度，禁止整根侧栏滚动（header/footer 固定不滚走） */
+    .admin-sidebar {
+        height: 100vh;
+        overflow: hidden;
+    }
+
+    /* 滚动主体改为 .sidebar-nav：flex 子项必须 min-height:0 才能让内部 overflow 生效 */
+    .admin-sidebar .sidebar-nav {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+        overflow-x: hidden;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* 导航区细滚动条：避免折叠态 64px 下默认粗滚动条挤压图标，滚动条样式统一 */
+    .admin-sidebar .sidebar-nav {
+        scrollbar-width: thin;
+        scrollbar-color: rgba(255, 255, 255, 0.35) transparent;
+    }
+    .admin-sidebar .sidebar-nav::-webkit-scrollbar {
+        width: 6px;
+    }
+    .admin-sidebar .sidebar-nav::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    .admin-sidebar .sidebar-nav::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.35);
+        border-radius: 3px;
+    }
+    .admin-sidebar .sidebar-nav::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 255, 255, 0.55);
+    }
+}
+
+/* ========== 个人中心导航分组：主项 + 子菜单（桌面 >=1024px） ========== */
+.profile-tabs {
+    display: flex !important;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 0 12px;
+    border-bottom: 2px solid #eee;
+    margin-bottom: 20px;
+    padding: 0;
+    background: none;
+    overflow-x: visible;
+}
+.profile-tabs .tab-group {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    position: relative;
+    min-width: 0;
+}
+.profile-tabs .tab-group-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 14px;
+    background: none;
+    border: none;
+    font-size: 15px;
+    color: #666;
+    cursor: pointer;
+    position: relative;
+    transition: color .2s;
+    white-space: nowrap;
+}
+.profile-tabs .tab-group-btn:hover {
+    color: #667eea;
+}
+.profile-tabs .tab-group-btn.active {
+    color: #667eea;
+    font-weight: 600;
+}
+.profile-tabs .tab-group-btn.active::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: #667eea;
+}
+.profile-tabs .tab-group-btn::before {
+    content: '▾';
+    font-size: 10px;
+    color: #b0b4c8;
+    transition: transform .2s;
+}
+.profile-tabs .tab-group.open > .tab-group-btn::before {
+    transform: rotate(180deg);
+}
+.profile-tabs .tab-submenu {
+    display: none;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 6px;
+    padding: 8px 10px;
+    background: #f7f8fc;
+    border: 1px solid #eef0f6;
+    border-radius: 12px;
+}
+.profile-tabs .tab-submenu.open {
+    display: flex;
+}
+.profile-tabs .tab-submenu .tab-btn {
+    padding: 6px 14px;
+    background: #fff;
+    border: 1px solid #e4e7f2;
+    border-radius: 20px;
+    font-size: 13px;
+    color: #555;
+    cursor: pointer;
+    transition: all .2s;
+    white-space: nowrap;
+}
+.profile-tabs .tab-submenu .tab-btn:hover {
+    background: #f2f3fb;
+}
+.profile-tabs .tab-submenu .tab-btn.active {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: #fff;
+    border-color: transparent;
+    font-weight: 600;
+    box-shadow: 0 4px 12px rgba(102, 126, 234, .25);
+}
+.profile-tabs .tab-submenu .tab-btn.active::after {
+    display: none;
+}
+[data-theme="dark"] .profile-tabs .tab-submenu {
+    background: #23273a;
+    border-color: #33384d;
+}
+[data-theme="dark"] .profile-tabs .tab-submenu .tab-btn {
+    background: #1d2130;
+    border-color: #33384d;
+    color: #ccc;
+}
+[data-theme="dark"] .profile-tabs .tab-submenu .tab-btn:hover {
+    background: #2a2f3d;
+}
+
+/* ========== 个人中心导航分组：主项 + 子菜单（手机/平板 <=1023px） ========== */
+@media (max-width: 1023px) {
+    .profile-tabs {
+        display: flex !important;
+        flex-direction: column;
+        gap: 6px;
+        margin: 14px 0;
+        border: 1px solid #eef0f6;
+        border-radius: 16px;
+        padding: 10px;
+        background: #fff;
+        overflow-x: visible;
+    }
+    .profile-tabs .tab-group {
+        width: 100%;
+    }
+    .profile-tabs .tab-group-btn {
+        width: 100%;
+        justify-content: space-between;
+        padding: 12px 14px;
+        font-size: 14px;
+        background: #fafbfe;
+        border: 1px solid #e4e7f2;
+        border-radius: 12px;
+        color: #444;
+    }
+    .profile-tabs .tab-group-btn.active {
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: #fff;
+        border-color: transparent;
+        box-shadow: 0 4px 12px rgba(102, 126, 234, .25);
+    }
+    .profile-tabs .tab-group-btn.active::after {
+        display: none;
+    }
+    .profile-tabs .tab-submenu {
+        width: 100%;
+        margin-top: 6px;
+        padding: 8px;
+        background: #fff;
+        border: 1px solid #eef0f6;
+        border-radius: 12px;
+    }
+    .profile-tabs .tab-submenu .tab-btn {
+        padding: 10px 14px;
+        font-size: 13px;
+    }
+    [data-theme="dark"] .profile-tabs {
+        background: #23273a;
+        border-color: #33384d;
+    }
+    [data-theme="dark"] .profile-tabs .tab-group-btn {
+        background: #1d2130;
+        border-color: #33384d;
+        color: #ccc;
+    }
+    [data-theme="dark"] .profile-tabs .tab-submenu {
+        background: #1d2130;
+        border-color: #33384d;
+    }
+}
+
+
+/* =====================================================
+   个人信息界面：全屏化后的克制视觉美化（仅样式优化）
+   不改变 HTML 结构、功能逻辑与云端同步
+   ===================================================== */
+
+/* 1. 页面底色：极淡紫蓝光晕，消除全屏纯色单调感 */
+.profile-page {
+    background:
+        radial-gradient(1100px 480px at 12% -4%, rgba(102, 126, 234, 0.10), transparent 62%),
+        radial-gradient(900px 420px at 92% -2%, rgba(118, 75, 162, 0.08), transparent 58%),
+        #f5f7fa;
+}
+.profile-container {
+    background:
+        radial-gradient(1000px 400px at 22% -10%, rgba(102, 126, 234, 0.05), transparent 60%),
+        #ffffff;
+}
+
+/* 2. 标题：字距微调 + 底部渐变细线 */
+.profile-container h1 {
+    color: #2b2f3a;
+    font-weight: 700;
+    letter-spacing: 2px;
+    padding-bottom: 14px;
+    position: relative;
+}
+.profile-container h1::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    bottom: 0;
+    transform: translateX(-50%);
+    width: 56px;
+    height: 3px;
+    border-radius: 2px;
+    background: linear-gradient(90deg, #667eea, #764ba2);
+}
+
+/* 3. 头像区：尺寸、描边、光晕、hover 反馈 */
+.avatar-section {
+    margin-bottom: 32px;
+}
+.avatar-preview {
+    width: 116px;
+    height: 116px;
+    border: 3px solid #ffffff;
+    box-shadow:
+        0 8px 24px rgba(60, 70, 130, 0.16),
+        0 0 0 1px rgba(102, 126, 234, 0.20),
+        0 0 0 5px rgba(102, 126, 234, 0.08);
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+.avatar-preview:hover {
+    transform: translateY(-3px);
+    box-shadow:
+        0 12px 30px rgba(60, 70, 130, 0.22),
+        0 0 0 1px rgba(102, 126, 234, 0.35),
+        0 0 0 7px rgba(102, 126, 234, 0.13);
+}
+.avatar-hint {
+    color: #a0a8c0;
+    line-height: 1.6;
+}
+
+/* 4. 资料完成度：卡片质感升级 */
+.completion-wrap {
+    background: linear-gradient(180deg, #fbfbfe, #f5f7fc);
+    border: 1px solid #eceef7;
+    border-radius: 14px;
+    box-shadow: 0 2px 12px rgba(60, 70, 130, 0.06);
+    padding: 16px 20px;
+    margin-bottom: 26px;
+}
+.completion-label {
+    font-weight: 600;
+    color: #4a4f63;
+}
+.completion-label span:last-child {
+    color: #667eea;
+    font-weight: 700;
+}
+.completion-track {
+    height: 10px;
+    border-radius: 5px;
+    background: #e8eaf4;
+}
+.completion-fill {
+    box-shadow: 0 2px 6px rgba(102, 126, 234, 0.35);
+}
+
+/* 5. 成长卡质感微调（个人资料首卡） */
+.growth-card {
+    border-radius: 16px;
+    box-shadow: 0 6px 22px rgba(102, 126, 234, 0.12);
+    padding: 20px;
+    margin-bottom: 22px;
+}
+
+/* 6. 键盘可达性：分组菜单焦点轮廓 */
+.profile-tabs .tab-group-btn:focus-visible,
+.profile-tabs .tab-submenu .tab-btn:focus-visible {
+    outline: 2px solid #667eea;
+    outline-offset: 2px;
+}
+
+/* 7. 深色模式一致性 */
+[data-theme="dark"] .profile-page {
+    background:
+        radial-gradient(1100px 480px at 12% -4%, rgba(102, 126, 234, 0.14), transparent 62%),
+        radial-gradient(900px 420px at 92% -2%, rgba(118, 75, 162, 0.10), transparent 58%),
+        #171923;
+}
+[data-theme="dark"] .profile-container {
+    background:
+        radial-gradient(1000px 400px at 22% -10%, rgba(102, 126, 234, 0.07), transparent 60%),
+        #171923;
+}
+[data-theme="dark"] .profile-container h1 {
+    color: #e2e4ee;
+}
+[data-theme="dark"] .avatar-preview {
+    border-color: #23273a;
+    box-shadow:
+        0 8px 24px rgba(0, 0, 0, 0.4),
+        0 0 0 1px rgba(102, 126, 234, 0.3),
+        0 0 0 5px rgba(102, 126, 234, 0.06);
+}
+[data-theme="dark"] .avatar-preview:hover {
+    box-shadow:
+        0 12px 30px rgba(0, 0, 0, 0.5),
+        0 0 0 1px rgba(102, 126, 234, 0.45),
+        0 0 0 7px rgba(102, 126, 234, 0.1);
+}
+[data-theme="dark"] .completion-wrap {
+    background: linear-gradient(180deg, #1f2330, #1c2130);
+    border-color: #2f3547;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.25);
+}
+[data-theme="dark"] .completion-label {
+    color: #a7adc4;
+}
+[data-theme="dark"] .completion-label span:last-child {
+    color: #8b9bff;
+}
+[data-theme="dark"] .completion-track {
+    background: #2a2f3d;
+}
+
+/* 8. 桌面端（>=1024px）：分组菜单细化 + 面板内容限宽居中（全屏背景保持） */
+@media (min-width: 1024px) {
+    .profile-tabs {
+        border-bottom-color: #e6e9f4;
+    }
+    .profile-tabs .tab-group-btn {
+        font-weight: 600;
+        color: #4a4f63;
+        padding: 11px 16px;
+        border-radius: 8px 8px 0 0;
+        transition: color 0.2s, background 0.2s;
+    }
+    .profile-tabs .tab-group-btn:hover {
+        background: #f3f4fc;
+    }
+    .profile-tabs .tab-submenu {
+        box-shadow: 0 6px 18px rgba(60, 70, 130, 0.08);
+    }
+    .profile-tabs .tab-submenu .tab-btn {
+        transition: all 0.2s ease;
+    }
+    .profile-tabs .tab-submenu .tab-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 3px 10px rgba(60, 70, 130, 0.12);
+    }
+    .profile-tabs .tab-submenu .tab-btn.active {
+        box-shadow: 0 6px 16px rgba(102, 126, 234, 0.35);
+    }
+    .profile-tabs .tab-submenu .tab-btn.active:hover {
+        transform: none;
+        box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+    }
+    .profile-tabs,
+    .avatar-section,
+    .completion-wrap,
+    .tab-panel {
+        max-width: 980px;
+        margin-left: auto;
+        margin-right: auto;
+        width: 100%;
+    }
+    [data-theme="dark"] .profile-tabs {
+        border-bottom-color: #2a2f3d;
+    }
+    [data-theme="dark"] .profile-tabs .tab-group-btn {
+        color: #a7adc4;
+    }
+    [data-theme="dark"] .profile-tabs .tab-group-btn:hover {
+        background: #23273a;
+    }
+    [data-theme="dark"] .profile-tabs .tab-submenu {
+        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+    }
+}
+
+/* 9. 手机/平板（<=1023px）：间距与尺寸适配 */
+@media (max-width: 1023px) {
+    .profile-container {
+        padding: 24px 16px 40px;
+    }
+    .profile-container h1 {
+        font-size: 24px;
+        margin-bottom: 22px;
+    }
+    .avatar-preview {
+        width: 100px;
+        height: 100px;
+    }
+    .completion-wrap {
+        padding: 14px 16px;
+    }
+    .completion-track {
+        height: 8px;
+    }
+    .growth-card {
+        padding: 16px;
+    }
+}
+@media (max-width: 480px) {
+    .avatar-preview {
+        width: 92px;
+        height: 92px;
+    }
+    .avatar-hint {
+        font-size: 11px;
+    }
+}
+
+/* =========================================================
+   管理后台整体视觉美化（admin.html 对应样式）
+   仅样式增强，不改结构与功能；浅色/深色、电脑版(>=1024px)/手机平板版(<=1023px)均适配
+   ========================================================= */
+
+/* 1. 侧边栏：层次与质感 */
+.admin-page .admin-sidebar {
+    background: linear-gradient(180deg, #5f7cf2 0%, #6a56bd 62%, #5a3fa6 100%);
+    box-shadow: 2px 0 20px rgba(72, 60, 168, 0.20);
+}
+.admin-page .sidebar-header {
+    padding: 22px 22px 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+}
+.admin-page .sidebar-header h2 {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    margin: 0;
+}
+.admin-page .sidebar-header h2::before {
+    content: '';
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.85);
+    flex: 0 0 auto;
+}
+.admin-page .sidebar-nav li a {
+    position: relative;
+}
+.admin-page .sidebar-nav li a::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    height: 0;
+    width: 3px;
+    border-radius: 0 3px 3px 0;
+    background: #fff;
+    transform: translateY(-50%);
+    opacity: 0;
+    transition: height 0.22s ease, opacity 0.22s ease;
+}
+.admin-page .sidebar-nav li a:hover::before {
+    height: 60%;
+    opacity: 0.65;
+}
+.admin-page .sidebar-nav li.active a {
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0.26), rgba(255, 255, 255, 0.10));
+    border-left-color: transparent;
+}
+.admin-page .sidebar-nav li.active a::before {
+    height: 70%;
+    opacity: 1;
+}
+.admin-page .sidebar-nav li a .nav-icon {
+    transition: transform 0.2s ease, filter 0.2s ease;
+}
+.admin-page .sidebar-nav li a:hover .nav-icon {
+    transform: translateX(2px);
+}
+.admin-page .sidebar-nav li.active a .nav-icon {
+    filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.75));
+}
+.admin-page .sidebar-group-title {
+    margin-top: 8px;
+    color: rgba(255, 255, 255, 0.58);
+}
+.admin-page .sidebar-footer {
+    padding: 18px 18px;
+}
+.admin-page .sidebar-footer .btn {
+    width: 100%;
+    box-sizing: border-box;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.14);
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    padding: 10px 14px;
+}
+.admin-page .sidebar-footer .btn:hover {
+    background: rgba(255, 255, 255, 0.24);
+}
+
+/* 2. 主内容区与顶栏 */
+.admin-page .admin-main {
+    background: linear-gradient(180deg, #eef2fb 0%, #f5f7fa 160px);
+}
+.admin-page .admin-header {
+    background: rgba(255, 255, 255, 0.86);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border-bottom: 1px solid #e8ecf5;
+    box-shadow: 0 2px 10px rgba(30, 40, 90, 0.05);
+}
+.admin-page .admin-header h1 {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+}
+.admin-page #currentAdmin {
+    display: inline-block;
+    padding: 5px 12px;
+    border-radius: 999px;
+    background: #eef1fb;
+    color: #5a6aa8;
+    font-size: 13px;
+    font-weight: 600;
+    border: 1px solid #dde3f7;
+}
+.admin-page .tab-content {
+    max-width: 1500px;
+    margin: 0 auto;
+}
+
+/* 3. 统计卡片质感 */
+.admin-page .stats-grid {
+    gap: 22px;
+}
+.admin-page .stat-card {
+    border: 1px solid #edf0f8;
+    box-shadow: 0 4px 16px rgba(30, 40, 90, 0.06);
+    border-radius: 14px;
+    padding: 22px 20px;
+}
+.admin-page .stat-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 14px;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.03);
+}
+.admin-page .stat-value {
+    font-size: 30px;
+}
+.admin-page .stat-label {
+    letter-spacing: 0.4px;
+}
+.admin-page .stat-trend {
+    display: inline-block;
+    margin-top: 4px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+/* 4. 图表区 */
+.admin-page .chart-placeholder {
+    border: 1px solid #edf0f8;
+    box-shadow: 0 4px 16px rgba(30, 40, 90, 0.05);
+    border-radius: 14px;
+}
+.admin-page .chart-placeholder h3 {
+    font-size: 15px;
+    font-weight: 600;
+    padding-bottom: 12px;
+    border-bottom: 1px dashed #e4e8f4;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.admin-page .chart-placeholder h3::before {
+    content: '';
+    width: 4px;
+    height: 16px;
+    border-radius: 2px;
+    background: linear-gradient(180deg, #667eea, #764ba2);
+    flex: 0 0 auto;
+}
+.admin-page .css-charts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 22px;
+    margin-top: 22px;
+}
+.admin-page .bar-chart {
+    margin-top: 6px;
+}
+.admin-page .donut-chart {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.admin-page .donut-center {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 26px;
+    font-weight: 700;
+    color: #333;
+    pointer-events: none;
+}
+.admin-page .donut-legend {
+    margin-top: 10px;
+    justify-content: center;
+}
+
+/* 5. 工具栏与筛选控件 */
+.admin-page .toolbar {
+    background: #f1f4fb;
+    border: 1px solid #e6eaf5;
+    border-radius: 12px;
+    padding: 12px 14px;
+}
+.admin-page .toolbar input,
+.admin-page .toolbar select {
+    border-radius: 8px;
+    background: #fff;
+}
+.admin-page .search-input,
+.admin-page .filter-select {
+    border-color: #d9dfee;
+}
+.admin-page .search-input::placeholder {
+    color: #a6aec4;
+}
+
+/* 6. 表格卡片化与可读性 */
+.admin-page .table-wrapper {
+    background: #fff;
+    border: 1px solid #e6eaf5;
+    border-radius: 14px;
+    box-shadow: 0 4px 16px rgba(30, 40, 90, 0.05);
+    overflow-x: auto;
+}
+.admin-page .table-wrapper table {
+    min-width: 720px;
+}
+.admin-page thead th {
+    background: #f7f9fe;
+    color: #5a6a8c;
+    font-weight: 600;
+    font-size: 12.5px;
+    letter-spacing: 0.4px;
+    border-bottom: 1px solid #e6eaf5;
+    white-space: nowrap;
+}
+.admin-page tbody td {
+    padding: 12px 10px;
+    border-bottom: 1px solid #eef1f8;
+    vertical-align: middle;
+}
+.admin-page tbody tr:nth-child(even) {
+    background: #fbfcff;
+}
+.admin-page tbody tr:hover {
+    background: #f3f6fe;
+}
+.admin-page .point-log-table th,
+.admin-page .device-table th,
+.admin-page .log-table th {
+    background: #f7f9fe;
+}
+
+/* 7. 分页 */
+.admin-page .pagination button {
+    min-width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    border: 1px solid #dde2f0;
+    color: #5a6a8c;
+    background: #fff;
+    transition: all 0.2s ease;
+}
+.admin-page .pagination button:hover:not(.active) {
+    border-color: #667eea;
+    color: #667eea;
+    background: #f0f3ff;
+}
+.admin-page .pagination button.active {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    border-color: transparent;
+    box-shadow: 0 4px 10px rgba(102, 126, 234, 0.3);
+}
+.admin-page .page-tip {
+    color: #8a93a8;
+    font-size: 13px;
+    margin-top: 12px;
+    text-align: center;
+}
+
+/* 8. 设置面板 */
+.admin-page .settings-section {
+    border: 1px solid #edf0f8;
+    border-radius: 14px;
+    padding: 22px 24px;
+    box-shadow: 0 4px 16px rgba(30, 40, 90, 0.05);
+}
+.admin-page .settings-section h3 {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    font-size: 15px;
+    padding-bottom: 12px;
+    border-bottom: 1px dashed #e4e8f4;
+}
+.admin-page .settings-section h3::before {
+    content: '';
+    width: 4px;
+    height: 15px;
+    border-radius: 2px;
+    background: linear-gradient(180deg, #667eea, #764ba2);
+    flex: 0 0 auto;
+}
+.admin-page .form-group input,
+.admin-page .form-group select,
+.admin-page .form-group textarea {
+    border-radius: 8px;
+    border-color: #d9dfee;
+}
+.admin-page .form-group input:focus,
+.admin-page .form-group select:focus,
+.admin-page .form-group textarea:focus {
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.14);
+}
+.admin-page .checkbox-group label,
+.admin-page .radio-group label {
+    padding: 4px 0;
+}
+
+/* 9. 弹窗细节 */
+.admin-page .modal-content {
+    border-radius: 14px;
+    position: relative;
+}
+.admin-page .modal-content::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    border-radius: 14px 14px 0 0;
+    background: linear-gradient(90deg, #667eea, #764ba2, #f093fb);
+}
+.admin-page .modal-header {
+    padding: 20px 24px;
+}
+.admin-page .modal-header h3 {
+    font-size: 17px;
+}
+.admin-page .modal-close {
+    font-size: 20px;
+}
+
+/* 10. 桌面端 (>=1024px) 细节 */
+@media (min-width: 1024px) {
+    .admin-page .admin-header {
+        position: sticky;
+        top: 0;
+        z-index: 50;
+    }
+    .admin-page .admin-header h1 {
+        font-size: 24px;
+    }
+    .admin-page .tab-content {
+        padding: 26px 32px 40px;
+    }
+    .admin-page .admin-sidebar .sidebar-nav::-webkit-scrollbar {
+        width: 6px;
+    }
+    .admin-page .admin-sidebar .sidebar-nav::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.28);
+        border-radius: 3px;
+    }
+    .admin-page .admin-sidebar .sidebar-nav::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    /* 折叠态：隐藏分组标题，避免残留文字块 */
+    .admin-page .admin-sidebar.collapsed .sidebar-group-title {
+        display: none;
+    }
+    .admin-page .admin-sidebar.collapsed .sidebar-nav li a {
+        padding: 14px 0;
+    }
+    .admin-page .admin-sidebar.collapsed .sidebar-nav li a .nav-icon {
+        font-size: 18px;
+    }
+}
+
+/* 11. 手机/平板 (<=1023px) 移动端规范 */
+@media (max-width: 1023px) {
+    .admin-page .sidebar-nav li a {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-height: 48px;
+        padding: 12px 22px;
+    }
+    .admin-page .sidebar-nav li a .nav-icon {
+        font-size: 17px;
+        width: 24px;
+    }
+    .admin-page .sidebar-group-title {
+        padding: 16px 22px 4px;
+    }
+    .admin-page .tab-content {
+        padding: 16px 12px 24px;
+    }
+    .admin-page .stats-grid {
+        gap: 14px;
+    }
+    .admin-page .toolbar {
+        padding: 10px;
+    }
+    .admin-page .toolbar input,
+    .admin-page .toolbar select,
+    .admin-page .toolbar .btn-sm {
+        min-height: 44px;
+        box-sizing: border-box;
+    }
+    .admin-page .pagination button {
+        min-width: 40px;
+        min-height: 40px;
+    }
+    .admin-page .settings-section {
+        padding: 16px;
+    }
+}
+@media (max-width: 767px) {
+    /* 手机端顶部工具栏细节与安全区 */
+    .admin-page .admin-mobile-bar {
+        box-shadow: 0 2px 10px rgba(40, 40, 120, 0.18);
+        padding: 10px 14px calc(10px + env(safe-area-inset-top, 0px));
+    }
+    .admin-page .admin-mobile-toggle {
+        width: 40px;
+        height: 40px;
+    }
+    .admin-page .admin-sidebar .sidebar-footer {
+        padding-bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+    }
+}
+
+/* 12. 深色模式一致性补全 */
+[data-theme="dark"] .admin-page .admin-main {
+    background: linear-gradient(180deg, #161a28 0%, #1a1e2e 180px);
+}
+[data-theme="dark"] .admin-page .admin-header {
+    background: rgba(31, 35, 48, 0.9);
+    border-bottom-color: #2a2f3d;
+}
+[data-theme="dark"] .admin-page .admin-header h1 {
+    color: #e6e9f5;
+}
+[data-theme="dark"] .admin-page #currentAdmin {
+    background: #262c3f;
+    border-color: #333a52;
+    color: #a9b4e0;
+}
+[data-theme="dark"] .admin-page .stat-card,
+[data-theme="dark"] .admin-page .chart-placeholder,
+[data-theme="dark"] .admin-page .settings-section,
+[data-theme="dark"] .admin-page .table-wrapper {
+    background: #1f2330;
+    border-color: #2a2f3d;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+}
+[data-theme="dark"] .admin-page .stat-value,
+[data-theme="dark"] .admin-page .stat-trend,
+[data-theme="dark"] .admin-page .chart-placeholder h3,
+[data-theme="dark"] .admin-page .settings-section h3,
+[data-theme="dark"] .admin-page .donut-center {
+    color: #e6e9f5;
+}
+[data-theme="dark"] .admin-page .stat-label {
+    color: #8a93ab;
+}
+[data-theme="dark"] .admin-page .chart-placeholder h3,
+[data-theme="dark"] .admin-page .settings-section h3 {
+    border-bottom-color: #2a2f3d;
+}
+[data-theme="dark"] .admin-page .toolbar {
+    background: #1d2130;
+    border-color: #2a2f3d;
+}
+[data-theme="dark"] .admin-page .toolbar input,
+[data-theme="dark"] .admin-page .toolbar select,
+[data-theme="dark"] .admin-page .search-input,
+[data-theme="dark"] .admin-page .filter-select,
+[data-theme="dark"] .admin-page .form-group input,
+[data-theme="dark"] .admin-page .form-group select,
+[data-theme="dark"] .admin-page .form-group textarea {
+    background: #1d2130;
+    border-color: #33384d;
+    color: #dde3f0;
+}
+[data-theme="dark"] .admin-page thead th {
+    background: #1d2130;
+    color: #9aa6c2;
+    border-bottom-color: #2a2f3d;
+}
+[data-theme="dark"] .admin-page tbody td {
+    color: #c7cedf;
+    border-bottom-color: #242a3a;
+}
+[data-theme="dark"] .admin-page tbody tr:nth-child(even) {
+    background: #1c2130;
+}
+[data-theme="dark"] .admin-page tbody tr:hover {
+    background: #252b3d;
+}
+[data-theme="dark"] .admin-page .point-log-table th,
+[data-theme="dark"] .admin-page .device-table th,
+[data-theme="dark"] .admin-page .log-table th {
+    background: #1d2130;
+}
+[data-theme="dark"] .admin-page .pagination button {
+    background: #1f2330;
+    border-color: #33384d;
+    color: #c7cedf;
+}
+[data-theme="dark"] .admin-page .pagination button:hover:not(.active) {
+    border-color: #667eea;
+    color: #9db2ff;
+    background: #262c3f;
+}
+[data-theme="dark"] .admin-page .modal-content {
+    background: #23273a;
+    color: #dde3f0;
+}
+[data-theme="dark"] .admin-page .modal-header {
+    border-bottom-color: #2a2f3d;
+}
+[data-theme="dark"] .admin-page .modal-header h3 {
+    color: #e6e9f5;
+}
+[data-theme="dark"] .admin-page .modal-content input,
+[data-theme="dark"] .admin-page .modal-content select,
+[data-theme="dark"] .admin-page .modal-content textarea {
+    background: #1d2130;
+    border-color: #33384d;
+    color: #dde3f0;
+}
+[data-theme="dark"] .admin-page .donut-ring::after {
+    background: #23273a;
+}
+[data-theme="dark"] .admin-page .page-tip,
+[data-theme="dark"] .admin-page .backup-tip {
+    color: #6b7590;
+}
+[data-theme="dark"] .admin-page .role-badge {
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+}
+
