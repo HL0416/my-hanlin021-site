@@ -4067,15 +4067,15 @@ body.user-themed { background: linear-gradient(135deg, var(--user-accent1), var(
     }
 }
 
-/* --- 手机端底部导航栏显示 --- */
+/* --- 手机端：底部导航栏已移除（改用顶部汉堡 + 侧栏抽屉导航） --- */
 @media (max-width: 767px) {
     .bottom-nav {
-        display: flex !important;
+        display: none !important;
     }
     
-    /* 底部导航栏区域增加安全间距 */
+    /* 底部不再为底部导航留位 */
     .site-footer {
-        padding-bottom: calc(60px + env(safe-area-inset-bottom, 4px));
+        padding-bottom: calc(24px + env(safe-area-inset-bottom, 4px));
     }
 }
 
@@ -6045,3 +6045,201 @@ body.user-themed { background: linear-gradient(135deg, var(--user-accent1), var(
     box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
 }
 
+
+/* =========================================================
+   移动端主导航切换 + 管理后台三档可用性增强
+   A. 手机/平板：移除底部导航（bottom-nav），侧栏/抽屉（汉堡）为唯一主导航
+   B. admin：手机/平板/桌面 观感与可用性提升（仅样式，不改变任何结构/逻辑）
+   ========================================================= */
+
+/* ---- A1. 移动端：底部导航全面移除（含旧响应式规则与平板横屏） ---- */
+@media (max-width: 1023px) {
+    .bottom-nav,
+    #bottomNav {
+        display: none !important;
+    }
+}
+@media (max-height: 500px) and (orientation: landscape) {
+    .bottom-nav,
+    #bottomNav {
+        display: none !important;
+    }
+}
+
+/* A2. 页面底部不再为 bottom-nav 预留间距；悬浮按钮回落安全区 */
+@media (max-width: 1023px) {
+    body.home-page,
+    body.profile-page {
+        padding-bottom: 0 !important;
+    }
+    .fab-group {
+        bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+    }
+}
+
+/* A3. 抽屉（侧栏）主导航强化：触控目标、安全区、滚动手感 */
+@media (max-width: 1023px) {
+    .nav-drawer {
+        width: min(300px, 86vw);
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+        -webkit-overflow-scrolling: touch;
+    }
+    .nav-drawer .drawer-header {
+        min-height: 56px;
+    }
+    .nav-drawer .drawer-close-btn {
+        width: 44px;
+        height: 44px;
+    }
+    .nav-drawer .drawer-body {
+        padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    }
+    .nav-drawer .drawer-link {
+        min-height: 48px;
+        padding: 13px 14px;
+    }
+}
+
+/* A4. 汉堡按钮：触控尺寸与可点区域 */
+@media (max-width: 1023px) {
+    .nav-toggle {
+        width: 44px;
+        height: 44px;
+        min-width: 44px;
+        min-height: 44px;
+    }
+}
+
+/* ---- B1. 管理后台 手机 <=767px：可用性提升 ---- */
+@media (max-width: 767px) {
+    /* 工具栏纵向全宽，搜索/筛选/按钮不再拥挤 */
+    .admin-page .toolbar {
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 10px;
+    }
+    .admin-page .toolbar .search-input,
+    .admin-page .toolbar .filter-select {
+        flex: 1 1 100%;
+        width: 100%;
+    }
+    .admin-page .toolbar .btn-sm,
+    .admin-page .toolbar button {
+        flex: 1 1 auto;
+        min-height: 44px;
+    }
+
+    /* 表格：触控行高 + 圆角滚动容器 */
+    .admin-page .table-wrapper {
+        border-radius: 12px;
+        -webkit-overflow-scrolling: touch;
+    }
+    .admin-page .table-wrapper th,
+    .admin-page .table-wrapper td {
+        padding: 12px 10px;
+        white-space: nowrap;
+    }
+
+    /* 分页：换行居中、大触控按钮 */
+    .admin-page .pagination {
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 6px;
+    }
+    .admin-page .pagination button {
+        min-width: 44px;
+        min-height: 44px;
+    }
+
+    /* 弹窗：底部弹出式，触控友好 + 安全区 */
+    .admin-page .modal-overlay {
+        align-items: flex-end;
+    }
+    .admin-page .modal-content {
+        width: 100% !important;
+        max-width: none !important;
+        margin: 0 !important;
+        border-radius: 18px 18px 0 0 !important;
+        max-height: 92vh;
+    }
+    .admin-page .modal-content.modal-large {
+        max-height: 96vh;
+    }
+    .admin-page .modal-body {
+        max-height: none;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    }
+    .admin-page .modal-footer {
+        padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+    }
+
+    /* 统计卡 / 图表：单列清晰 */
+    .admin-page .stats-grid {
+        grid-template-columns: 1fr;
+    }
+    .admin-page .css-charts-grid {
+        grid-template-columns: 1fr;
+    }
+    .admin-page .css-chart {
+        height: 240px;
+    }
+
+    /* 设置面板表单全宽 */
+    .admin-page .settings-section .form-group,
+    .admin-page .settings-section input,
+    .admin-page .settings-section select {
+        width: 100%;
+        box-sizing: border-box;
+    }
+    .admin-page .settings-section .btn {
+        width: 100%;
+    }
+
+    /* 手机顶栏标题省略 */
+    .admin-page .admin-mobile-title {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+}
+
+/* ---- B2. 管理后台 平板 768-1023px：可用性提升 ---- */
+@media (min-width: 768px) and (max-width: 1023px) {
+    .admin-page .admin-header {
+        position: sticky;
+        top: 0;
+        z-index: 50;
+        backdrop-filter: blur(8px);
+    }
+    .admin-page .toolbar {
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+    .admin-page .toolbar .search-input {
+        flex: 1 1 260px;
+    }
+    .admin-page .table-wrapper {
+        border-radius: 12px;
+    }
+    .admin-page .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* ---- B3. 管理后台 桌面 >=1024px：观感微调 ---- */
+@media (min-width: 1024px) {
+    .admin-page .table-wrapper table th {
+        background: linear-gradient(180deg, #f6f8ff, #eef1fb);
+    }
+    .admin-page .table-wrapper tbody tr:hover {
+        background: #f4f6ff;
+    }
+    [data-theme="dark"] .admin-page .table-wrapper table th {
+        background: linear-gradient(180deg, #232841, #1e2336);
+    }
+    [data-theme="dark"] .admin-page .table-wrapper tbody tr:hover {
+        background: #232841;
+    }
+}
