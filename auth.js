@@ -40,20 +40,108 @@
             fetch(CLOUD_URL + '?key=' + encodeURIComponent(key))
                 .then(function (r) { return r.json(); })
                 .then(function (res) {
-                    if (res && res.ok && res.value !== null && res.value !== undefined) {
-                        // users 键以云端为准（含清空场景：云端空数组也覆盖本地残留账号）
-                        if (key === 'users' || isEmptyLocalValue(readLocal(key))) {
-                            writeLocal(key, typeof res.value === 'string' ? res.value : JSON.stringify(res.value));
-                        }
+                    if (!res || !res.ok || res.value === null || res.value === undefined) { return; }
+                    if (key === 'users') {
+                        // users 键走双向合并：云端为权威，本地独有账号补传云端，被删除账号按墓碑剔除
+                        mergeUsersWithCloud(typeof res.value === 'string' ? res.value : JSON.stringify(res.value));
+                        return;
+                    }
+                    if (isEmptyLocalValue(readLocal(key))) {
+                        writeLocal(key, typeof res.value === 'string' ? res.value : JSON.stringify(res.value));
                     }
                 })
                 .catch(function () { /* 云端不可用时静默回退本地 */ });
         }
 
+        // 云端写串行队列：避免并发 set 乱序覆盖；失败重试 1 次
+        var writeQueue = Promise.resolve();
+        function pushCloud(key, value) {
+            if (typeof fetch !== 'function') { return Promise.resolve(); }
+            writeQueue = writeQueue.then(function () {
+                return fetch(CLOUD_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ key: key, value: value })
+                }).then(function (r) { return r.json(); }).catch(function () {
+                    // 首次失败重试一次（后台写后刷新仍需一致）
+                    return fetch(CLOUD_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ key: key, value: value })
+                    }).then(function (r) { return r.json(); }).catch(function () { /* 最终失败静默，本地已生效 */ });
+                });
+            });
+            return writeQueue;
+        }
+
+        function getDeletedUsers() {
+            try { return JSON.parse(readLocal('siteDeletedUsers') || '[]'); } catch (e) { return []; }
+        }
+        function saveDeletedUsers(list) {
+            writeLocal('siteDeletedUsers', JSON.stringify(list));
+            pushCloud('siteDeletedUsers', list);
+        }
+
+        // 用户表双向合并：云端为权威 + 本地存量补传 + 墓碑剔除
+        function mergeUsersWithCloud(cloudRaw) {
+            var cloudArr = [];
+            try { cloudArr = JSON.parse(cloudRaw || '[]'); } catch (e) { cloudArr = []; }
+            if (!Array.isArray(cloudArr)) cloudArr = [];
+            var localArr = [];
+            try { localArr = JSON.parse(readLocal('users') || '[]'); } catch (e) { localArr = []; }
+            if (!Array.isArray(localArr)) localArr = [];
+            var deleted = getDeletedUsers();
+            var map = {};
+            var order = [];
+            function put(u) {
+                if (!u || !u.username) return;
+                if (!Object.prototype.hasOwnProperty.call(map, u.username)) { order.push(u.username); }
+                map[u.username] = u;
+            }
+            for (var i = 0; i < cloudArr.length; i++) put(cloudArr[i]);
+            var localOnly = [];
+            for (var j = 0; j < localArr.length; j++) {
+                var lu = localArr[j];
+                if (!lu || !lu.username) continue;
+                if (!Object.prototype.hasOwnProperty.call(map, lu.username)) {
+                    // 本地存量不在云端：若未被删除则补传（本地新注册账号跨设备可见）
+                    if (deleted.indexOf(lu.username) === -1) { localOnly.push(lu.username); put(lu); }
+                }
+            }
+            // 云端存在该用户视为恢复，从墓碑移除
+            var newDeleted = [];
+            for (var d = 0; d < deleted.length; d++) {
+                if (Object.prototype.hasOwnProperty.call(map, deleted[d])) continue;
+                newDeleted.push(deleted[d]);
+            }
+            var merged = [];
+            for (var k = 0; k < order.length; k++) merged.push(map[order[k]]);
+            writeLocal('users', JSON.stringify(merged));
+            var dirty = localOnly.length > 0 || newDeleted.length !== deleted.length;
+            if (dirty) {
+                pushCloud('users', merged);
+                saveDeletedUsers(newDeleted);
+            }
+        }
+
+        function markUserDeleted(username) {
+            if (!username) return;
+            var deleted = getDeletedUsers();
+            if (deleted.indexOf(username) === -1) deleted.push(username);
+            saveDeletedUsers(deleted);
+        }
+        function unmarkUserDeleted(username) {
+            if (!username) return;
+            var deleted = getDeletedUsers();
+            var next = [];
+            for (var i = 0; i < deleted.length; i++) { if (deleted[i] !== username) next.push(deleted[i]); }
+            if (next.length !== deleted.length) saveDeletedUsers(next);
+        }
+
         // 启动时对全站已知键做一轮云端预取，实现跨设备数据回填
         function init() {
             if (typeof fetch !== 'function') { return; }
-            var keys = ['users', 'currentUser', 'adminLogs', 'siteTheme', 'announcements',
+            var keys = ['currentUser', 'adminLogs', 'siteTheme', 'announcements',
                 'siteGuestbook', 'siteVisitLog', 'siteContents', 'siteSettings', 'siteAlbums',
                 'siteChats', 'siteChatOpenWith', 'siteDiary_', 'siteFeedbacks', 'siteGrowth_',
                 'siteMoments', 'siteNotes_', 'sitePolls', 'siteReadLater_', 'siteNotifications',
@@ -64,6 +152,16 @@
             keys.forEach(function (k) {
                 pullKey(k);
             });
+            // users 单独走合并拉取，保证后台增删改用户后刷新/多设备一致
+            cloudSynced['users'] = true;
+            fetch(CLOUD_URL + '?key=' + encodeURIComponent('users'))
+                .then(function (r) { return r.json(); })
+                .then(function (res) {
+                    if (res && res.ok && res.value !== null && res.value !== undefined) {
+                        mergeUsersWithCloud(typeof res.value === 'string' ? res.value : JSON.stringify(res.value));
+                    }
+                })
+                .catch(function () { /* ignore */ });
         }
 
         return {
@@ -73,26 +171,18 @@
             },
             set: function (key, value) {
                 writeLocal(key, value);
-                if (typeof fetch !== 'function') { return Promise.resolve(); }
-                try {
-                    return fetch(CLOUD_URL, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ key: key, value: value })
-                    }).then(function (r) { return r.json(); }).catch(function () { /* 云端写入失败不影响本地 */ });
-                } catch (e) { return Promise.resolve(); }
+                return pushCloud(key, value);
             },
             remove: function (key) {
                 removeLocal(key);
                 if (typeof fetch !== 'function') { return; }
                 try {
-                    fetch(CLOUD_URL, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ key: key, value: null })
-                    }).catch(function () { /* ignore */ });
+                    pushCloud(key, null).catch(function () { /* ignore */ });
                 } catch (e) { /* ignore */ }
             },
+            markUserDeleted: markUserDeleted,
+            unmarkUserDeleted: unmarkUserDeleted,
+            mergeUsersWithCloud: mergeUsersWithCloud,
             init: init
         };
     })();
@@ -103,6 +193,32 @@
     // 页面加载完成后启动云端预取（不阻塞首屏渲染）
     if (typeof window.addEventListener === 'function') {
         window.addEventListener('load', function () { dataStore.init(); });
+        // 窗口聚焦 / 从缓存回退时重新拉取用户表并双向合并，保证后台增删改用户后刷新/多设备一致
+        window.addEventListener('focus', function () {
+            if (typeof fetch !== 'function') { return; }
+            fetch('/.netlify/functions/data?key=' + encodeURIComponent('users'))
+                .then(function (r) { return r.json(); })
+                .then(function (res) {
+                    if (res && res.ok && res.value !== null && res.value !== undefined) {
+                        dataStore.mergeUsersWithCloud(typeof res.value === 'string' ? res.value : JSON.stringify(res.value));
+                    }
+                })
+                .catch(function () { /* ignore */ });
+        });
+        if (typeof window.addEventListener === 'function' && typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+            document.addEventListener('visibilitychange', function () {
+                if (document.visibilityState === 'visible' && typeof fetch === 'function') {
+                    fetch('/.netlify/functions/data?key=' + encodeURIComponent('users'))
+                        .then(function (r) { return r.json(); })
+                        .then(function (res) {
+                            if (res && res.ok && res.value !== null && res.value !== undefined) {
+                                dataStore.mergeUsersWithCloud(typeof res.value === 'string' ? res.value : JSON.stringify(res.value));
+                            }
+                        })
+                        .catch(function () { /* ignore */ });
+                }
+            });
+        }
     }
 
     // ========== 工具函数 ==========
@@ -272,12 +388,55 @@
         var pct = next ? Math.min(100, Math.round((points - cur.min) / (next.min - cur.min) * 100)) : 100;
         return { level: idx + 1, name: cur.name, next: next, pct: pct };
     }
+    // 积分流水统一记录：增减分 + 明细留痕（最多保留最近 500 条）
+    function recordPointFlow(username, delta, reason) {
+        if (!username || !delta) return;
+        var data = getGrowth(username);
+        data.points = (data.points || 0) + delta;
+        saveGrowth(username, data);
+        var list = getPointLog(username);
+        list.unshift({ time: nowTextStr(), ts: Date.now(), reason: reason || '', delta: delta, balance: data.points });
+        if (list.length > 500) list.length = 500;
+        savePointLog(username, list);
+        addLog('points', '用户 ' + username + ' 积分 ' + (delta >= 0 ? '+' : '') + delta + (reason ? '（' + reason + '）' : ''));
+    }
+    function getPointLog(username) {
+        try { return JSON.parse(dataStore.get('sitePointFlow_' + username) || '[]'); } catch (e) { return []; }
+    }
+    function savePointLog(username, list) {
+        dataStore.set('sitePointFlow_' + username, JSON.stringify(list));
+    }
+    // 商城背包：平铺 owned 结构（itemId -> 购买记录），与全局模块共用同一键
+    function getInventory(username) {
+        try { return JSON.parse(dataStore.get('siteInventory_' + username) || '{}'); } catch (e) { return {}; }
+    }
+    function saveInventory(username, data) {
+        dataStore.set('siteInventory_' + username, JSON.stringify(data));
+    }
+    function ensureInventory(username) {
+        var inv = getInventory(username);
+        if (!inv || typeof inv !== 'object') { inv = {}; saveInventory(username, inv); }
+        return inv;
+    }
+    function startOfWeek() {
+        var d = new Date(); d.setHours(0, 0, 0, 0);
+        var day = d.getDay() || 7;
+        d.setDate(d.getDate() - day + 1);
+        return d.getTime();
+    }
+    function startOfMonth() {
+        var d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(1);
+        return d.getTime();
+    }
+    function parseLogTime(str) {
+        if (!str) return 0;
+        var m = /^(\d{4})-(\d{1,2})-(\d{1,2}) (\d{1,2}):(\d{2})/.exec(str);
+        if (!m) return 0;
+        return new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]).getTime();
+    }
     function addPoints(username, n, reason) {
         if (!username) return;
-        var data = getGrowth(username);
-        data.points = (data.points || 0) + n;
-        saveGrowth(username, data);
-        addLog('points', '用户 ' + username + ' 积分 +' + n + (reason ? '（' + reason + '）' : ''));
+        recordPointFlow(username, n, reason || '');
     }
 
     // ========== 用户内容（留言 / 动态）==========
@@ -485,6 +644,7 @@
                 email: email
             });
             addLog('register', '新用户注册：' + username + '，账号ID：' + newAccountId);
+            dataStore.unmarkUserDeleted(username); // 同名重新注册视为恢复，清除删除墓碑
             alert('注册成功！您的账号ID：' + newAccountId + '\n请妥善保存，返回登录页面登录。');
             var _setPromise = saveUsers(users);
             if (_setPromise && typeof _setPromise.then === 'function') {
@@ -1204,9 +1364,10 @@
         var bonus = (data.lastSignin === yKey) ? (data.streak + 1) : 1;
         var earn = 5 + Math.min(5, bonus - 1);
         data.streak = (data.lastSignin === yKey) ? (data.streak + 1) : 1;
-        data.points = (data.points || 0) + earn;
         data.lastSignin = todayKey;
         saveGrowth(session.username, data);
+        // 统一走积分流水：加积分 + 写明细 + 留痕（不再手动改 points，避免双倍加分）
+        recordPointFlow(session.username, earn, '每日签到（连续 ' + data.streak + ' 天）');
         addLog('signin', '用户 ' + session.username + ' 签到 +' + earn + ' 积分（连续 ' + data.streak + ' 天）');
         if (window.markTaskDone) window.markTaskDone('signin');
         renderGrowth();
@@ -1328,6 +1489,11 @@
             addActivity(session.username, '点赞', '点赞了一条内容');
             if (window.markTaskDone) window.markTaskDone('like');
             if (window.notifyContentLike) window.notifyContentLike(contentId);
+            var contentAuthor = getContentAuthorById(contentId);
+            if (contentAuthor && contentAuthor !== session.username) {
+                addPoints(contentAuthor, 1, '内容被点赞');
+                if (window.markTaskDoneFor) window.markTaskDoneFor(contentAuthor, 'be_liked');
+            }
         }
         saveInteractions(map);
         renderContentCards();
@@ -1358,6 +1524,14 @@
         saveInteractions(map);
         addActivity(session.username, '评论', '评论了一条内容');
         if (window.markTaskDone) window.markTaskDone('comment');
+        // 被评论者自动完成「被评论」任务（可在任务中心领取积分）
+        var contents = getContents();
+        for (var c = 0; c < contents.length; c++) {
+            if (String(contents[c].id) === String(contentId) && contents[c].author && contents[c].author !== session.username) {
+                if (window.markTaskDoneFor) window.markTaskDoneFor(contents[c].author, 'be_commented');
+                break;
+            }
+        }
         if (window.notifyContentComment) window.notifyContentComment(contentId, text);
         renderContentCards();
     }
@@ -1829,6 +2003,11 @@
             if (tabName === 'messages') renderUserMessages();
             if (tabName === 'favorites') renderFavorites();
             if (tabName === 'timeline') renderActivityTimeline();
+            if (tabName === 'shop' && window.renderShopPanel) window.renderShopPanel();
+            if (tabName === 'points') {
+                if (window.renderPointsRank) window.renderPointsRank('total');
+                if (window.renderPointLogPanel) window.renderPointLogPanel();
+            }
         });
     });
 
@@ -2094,6 +2273,7 @@
             for (var i = 0; i < users.length; i++) {
                 if (users[i].username !== session.username) { newUsers.push(users[i]); }
             }
+            dataStore.markUserDeleted(session.username); // 同步墓碑，注销账号跨设备一致
             saveUsers(newUsers);
 
             // 清理该用户的设备记录与登录会话
@@ -2886,9 +3066,7 @@ function checkAchievements(username) {
     if (changed) {
         _saveAchievements(u, unlocked);
         var reward = newly.length * 10;
-        var g2 = getGrowth(u);
-        g2.points = (g2.points || 0) + reward;
-        saveGrowth(u, g2);
+        recordPointFlow(u, reward, '解锁成就：' + newly.map(function (a) { return a.name; }).join('、'));
         addLog('achievement', '用户 ' + u + ' 解锁成就 ' + newly.map(function (a) { return a.name; }).join('、') + '，积分 +' + reward);
         showToast('成就解锁！' + newly.map(function (a) { return a.name; }).join('、') + '（+10 积分）', 'success');
     }
@@ -2971,6 +3149,8 @@ function publishMoment(text) {
     moments.unshift({ id: Date.now(), author: s.username, text: text.trim(), ts: Date.now(), likes: [], comments: [] });
     _saveMoments(moments);
     addLog('moment', '用户 ' + s.username + ' 发布了一条动态');
+    addPoints(s.username, 3, '发布动态');
+    if (window.markTaskDone) window.markTaskDone('moment');
     if (window.checkAchievements) window.checkAchievements();
     renderMomentFeed();
     renderMyMoments();
@@ -2978,7 +3158,7 @@ function publishMoment(text) {
     if (ta) ta.value = '';
     var ta2 = document.getElementById('homeMomentInput');
     if (ta2) ta2.value = '';
-    showToast('动态已发布', 'success');
+    showToast('动态已发布，积分 +3', 'success');
 }
 function deleteMoment(id) {
     var s = getSession();
@@ -3337,6 +3517,15 @@ window.getVisitLog = getVisitLog;
 window.saveVisitLog = saveVisitLog;
 window.getGrowth = getGrowth;
 window.saveGrowth = saveGrowth;
+window.growthLevel = growthLevel;
+window.recordPointFlow = recordPointFlow;
+window.getPointLog = getPointLog;
+window.getInventory = getInventory;
+window.saveInventory = saveInventory;
+window.ensureInventory = ensureInventory;
+window.startOfWeek = startOfWeek;
+window.startOfMonth = startOfMonth;
+window.parseLogTime = parseLogTime;
 if (isAdminPage) {
     var session = getSession();
     if (!session || (session.role !== 'super_admin' && session.role !== 'admin')) {
@@ -3640,7 +3829,7 @@ function switchTab(tabName) {
     }
 
     // 更新标题
-    var titles = { dashboard: '数据统计', users: '用户管理', content: '内容管理', announcements: '公告管理', feedback: '反馈管理', files: '文件管理', messages: '消息通知', settings: '系统设置', logs: '操作日志', albums: '相册管理', polls: '投票管理', guestbook: '留言管理' };
+    var titles = { dashboard: '数据统计', users: '用户管理', content: '内容管理', announcements: '公告管理', feedback: '反馈管理', files: '文件管理', messages: '消息通知', settings: '系统设置', logs: '操作日志', albums: '相册管理', polls: '投票管理', guestbook: '留言管理', points: '积分管理' };
     document.getElementById('pageTitle').textContent = titles[tabName] || '';
 
     // 手机端工具栏标题同步
@@ -3661,6 +3850,7 @@ function switchTab(tabName) {
     if (tabName === 'messages') renderMessagesTable();
     if (tabName === 'albums') renderAlbumsAdmin();
     if (tabName === 'polls') renderPollsAdmin();
+    if (tabName === 'points') renderPointsAdmin();
     if (tabName === 'logs') renderLogs();
 }
 
@@ -3908,6 +4098,14 @@ window.deleteSelectedUsers = function () {
         return true;
     });
     var skipped = users.length - remain.length;
+    // 真正被删除的用户记录墓碑，避免其他设备合并时补传回来
+    for (var d = 0; d < names.length; d++) {
+        var stillExists = false;
+        for (var s = 0; s < remain.length; s++) {
+            if (remain[s].username === names[d]) { stillExists = true; break; }
+        }
+        if (!stillExists) dataStore.markUserDeleted(names[d]);
+    }
     saveUsers(remain);
     addLog('delete_user', '批量删除用户 ' + skipped + ' 个：' + names.join('、'));
     var btns = document.querySelectorAll('.user-checkbox');
@@ -3916,6 +4114,88 @@ window.deleteSelectedUsers = function () {
     if (selAll) selAll.checked = false;
     renderUsersTable();
     showToast('已删除 ' + skipped + ' 个用户（自己/超级管理员自动跳过）', 'success');
+};
+
+// ========== 一键删除所有用户数据（仅保留超级管理员 admin） ==========
+window.adminWipeAllUsers = function () {
+    var session = getSession();
+    if (!session || session.role !== 'super_admin') {
+        showToast('仅超级管理员可执行此操作', 'error');
+        return;
+    }
+    var users = getUsers();
+    var keep = [];
+    var del = [];
+    for (var i = 0; i < users.length; i++) {
+        var u = users[i];
+        if (!u || !u.username) continue;
+        // 保留超级管理员，以及 accountId=1000 的 admin 默认账号（initDefaultAdmin 重建逻辑要求保留）
+        if (u.role === 'super_admin' || (u.username === 'admin' && String(u.accountId) === '1000')) {
+            keep.push(u);
+        } else {
+            del.push(u);
+        }
+    }
+    if (!del.length) {
+        showToast('当前没有需要删除的普通用户', 'warning');
+        return;
+    }
+    var names = [];
+    for (var d = 0; d < del.length; d++) names.push(del[d].username);
+    if (!confirm('确定一键删除所有普通用户数据？\n\n即将删除 ' + names.length + ' 个用户及其全部关联云端数据（积分明细、库存、成长记录、动态、任务、收藏等）：\n' + names.join('、') + '\n\n仅保留超级管理员 admin，此操作不可恢复！')) return;
+
+    var CLOUD_URL = '/.netlify/functions/data';
+    var USER_KEY_PREFIXES = ['sitePointFlow_', 'siteInventory_', 'siteGrowth_', 'userActivity_',
+        'userDevices_', 'userFavorites_', 'siteDiary_', 'siteNotes_', 'siteReadLater_',
+        'siteFollows_', 'siteSigninDates_', 'siteAchievements_', 'siteHistory_', 'taskCenter_'];
+    var queue = [];
+    names.forEach(function (name) {
+        USER_KEY_PREFIXES.forEach(function (prefix) { queue.push(prefix + name); });
+    });
+    // 删除名单并入墓碑，防止其他设备合并时把用户补传复活
+    var deleted = getDeletedUsers();
+    for (var t = 0; t < names.length; t++) {
+        if (deleted.indexOf(names[t]) === -1) deleted.push(names[t]);
+    }
+    var btn = document.getElementById('wipeAllUsersBtn');
+    if (btn) { btn.disabled = true; btn.textContent = '删除中...'; }
+
+    function postCloud(key, value) {
+        return fetch(CLOUD_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ key: key, value: value })
+        }).then(function (r) { return r.json(); });
+    }
+
+    var idx = 0;
+    function next() {
+        if (idx >= queue.length) {
+            // 关联键已全部清理：写墓碑 + 写回仅含 admin 的 users（云端与本地同步）
+            Promise.all([
+                postCloud('siteDeletedUsers', deleted),
+                saveUsers(keep)
+            ]).then(function (res) {
+                if (!res[0] || !res[0].ok) throw new Error('siteDeletedUsers cloud write fail');
+                addLog('wipe_users', '一键删除所有普通用户数据，删除 ' + names.length + ' 人：' + names.join('、'));
+                renderUsersTable();
+                if (btn) { btn.disabled = false; btn.textContent = '一键删除所有用户数据'; }
+                showToast('已删除 ' + names.length + ' 个普通用户及其云端数据，仅保留超级管理员', 'success');
+            }).catch(function () {
+                if (btn) { btn.disabled = false; btn.textContent = '一键删除所有用户数据'; }
+                showToast('云端写回失败，请重试', 'error');
+            });
+            return;
+        }
+        var key = queue[idx++];
+        postCloud(key, null).then(function (res) {
+            if (!res || !res.ok) throw new Error('cloud fail: ' + key);
+            next();
+        }).catch(function () {
+            next(); // 单键失败不中断，继续清理剩余键
+        });
+    }
+    next();
 };
 
 // ========== 站点备份导出 ==========
@@ -4149,6 +4429,7 @@ window.deleteUser = function (username) {
             newUsers.push(users[j]);
         }
     }
+    dataStore.markUserDeleted(username); // 同步墓碑，避免其他设备/标签页合并时把该用户补传回来
     saveUsers(newUsers);
     addLog('delete_user', '删除用户 ' + username);
     renderUsersTable();
@@ -4811,6 +5092,97 @@ function renderLogs() {
     tbody.innerHTML = html;
 }
 
+// ========== 管理后台 - 积分管理 ==========
+// IIFE 外的全局模块需引用 IIFE 内工具，此处建立顶层别名（暴露语句已先于本段执行）
+var getUsers = window.getUsers;
+var saveUsers = window.saveUsers;
+var getSession = window.getSession;
+var addLog = window.addLog;
+var getGrowth = window.getGrowth;
+var saveGrowth = window.saveGrowth;
+var growthLevel = window.growthLevel;
+function renderPointsAdmin() {
+    var wrap = document.getElementById('pointsAdminWrap');
+    if (!wrap) return;
+    var users = getUsers();
+    var rows = [];
+    for (var i = 0; i < users.length; i++) {
+        var u = users[i];
+        if (!u || !u.username) continue;
+        var growth = getGrowth(u.username);
+        var logs = getPointLog(u.username);
+        rows.push({
+            username: u.username,
+            nickname: u.nickname || u.username,
+            points: (growth.points || 0),
+            level: growthLevel((growth.points || 0)).name,
+            streak: growth.streak || 0,
+            logCount: logs.length
+        });
+    }
+    rows.sort(function (a, b) { return b.points - a.points; });
+    var html = '<div class="points-admin-toolbar">' +
+        '<button class="btn btn-primary btn-sm" onclick="window.adminAdjustAllUsers()">一键给全站用户发放积分</button>' +
+        '<span class="points-admin-hint">发放后自动写入积分流水并留痕操作日志</span></div>';
+    html += '<table class="admin-table"><thead><tr><th>用户</th><th>等级</th><th>当前积分</th><th>连续签到</th><th>流水条数</th><th>操作</th></tr></thead><tbody>';
+    for (var r = 0; r < rows.length; r++) {
+        var row = rows[r];
+        html += '<tr><td>' + escHtml(row.nickname) + '（' + escHtml(row.username) + '）</td><td>' + escHtml(row.level) + '</td><td><b>' + row.points + '</b></td><td>' + row.streak + '</td><td>' + row.logCount + '</td>' +
+            '<td><button class="btn btn-secondary btn-xs" onclick="window.adminAdjustPoints(\'' + encodeURIComponent(row.username) + '\')">调整积分</button> ' +
+            '<button class="btn btn-secondary btn-xs" onclick="window.adminViewPointLog(\'' + encodeURIComponent(row.username) + '\')">查看流水</button></td></tr>';
+    }
+    html += '</tbody></table>';
+    wrap.innerHTML = html;
+}
+
+window.adminAdjustPoints = function (encUsername) {
+    var username = decodeURIComponent(encUsername || '');
+    if (!username) return;
+    var user = getFullUserByName(username);
+    if (!user) { alert('用户不存在'); return; }
+    var cur = (getGrowth(username).points || 0);
+    var delta = prompt('请输入积分调整值（正数增加，负数扣减），' + username + ' 当前积分：' + cur, '10');
+    if (delta === null) return;
+    delta = parseInt(delta, 10);
+    if (isNaN(delta) || delta === 0) { alert('请输入非零整数'); return; }
+    if (delta < -500 || delta > 500) { alert('单次调整范围 -500 ~ 500'); return; }
+    recordPointFlow(username, delta, '管理员手动调整');
+    addLog('adjust_points', '管理员调整用户 ' + username + ' 积分 ' + (delta > 0 ? '+' : '') + delta + '（' + (user.nickname || user.username) + '）');
+    renderPointsAdmin();
+    alert('已调整 ' + username + ' 积分 ' + (delta > 0 ? '+' : '') + delta + '，当前 ' + (getGrowth(username).points || 0));
+};
+
+window.adminViewPointLog = function (encUsername) {
+    var username = decodeURIComponent(encUsername || '');
+    if (!username) return;
+    var logs = getPointLog(username);
+    if (!logs.length) { alert('该用户暂无积分流水'); return; }
+    var lines = logs.slice(0, 20).map(function (l) {
+        return l.time + '  ' + (l.delta >= 0 ? '+' : '') + l.delta + '  ' + l.reason;
+    });
+    alert('用户 ' + username + ' 最近积分流水（共 ' + logs.length + ' 条）：\n' + lines.join('\n'));
+};
+
+window.adminAdjustAllUsers = function () {
+    var users = getUsers();
+    if (!users.length) { alert('暂无用户'); return; }
+    var session = getSession();
+    var delta = parseInt(prompt('给全站 ' + users.length + ' 位用户统一发放积分（输入正数，默认 10）：', '10'), 10);
+    if (isNaN(delta) || delta === 0) { alert('操作已取消'); return; }
+    if (delta < -100 || delta > 100) { alert('单次全站调整范围 -100 ~ 100'); return; }
+    var count = 0;
+    for (var i = 0; i < users.length; i++) {
+        var username = users[i].username;
+        if (!username) continue;
+        if (session && username === session.username) continue;
+        recordPointFlow(username, delta, '管理员全站发放');
+        count++;
+    }
+    addLog('adjust_points_all', '管理员向全站 ' + count + ' 位用户发放积分 ' + (delta > 0 ? '+' : '') + delta);
+    renderPointsAdmin();
+    alert('已向全站 ' + count + ' 位用户发放积分 ' + (delta > 0 ? '+' : '') + delta);
+};
+
 // 前台各页面加载时自动应用站点配置（登录页/注册页/帮助/关于/隐私等均引用本文件）
 if (!isAdminPage && typeof applySiteSettings === 'function') {
     applySiteSettings();
@@ -4826,6 +5198,40 @@ if (!isAdminPage && typeof applySiteSettings === 'function') {
 // ================================================================
 
 // ---------- 通用工具 ----------
+function getPointLog(username) {
+    try { return JSON.parse(dataStore.get('sitePointFlow_' + username) || '[]'); } catch (e) { return []; }
+}
+function recordPointFlow(username, delta, reason) {
+    if (!username || !delta) return;
+    // 与 IIFE 内语义一致：同时更新成长积分 + 写流水 + 留痕
+    var growth = getGrowth(username);
+    growth.points = (growth.points || 0) + delta;
+    saveGrowth(username, growth);
+    var logs = getPointLog(username);
+    logs.unshift({ time: nowTextStr(), ts: Date.now(), delta: delta, reason: reason || '', balance: growth.points });
+    if (logs.length > 500) logs.length = 500;
+    dataStore.set('sitePointFlow_' + username, JSON.stringify(logs));
+    addLog('points', '用户 ' + username + ' 积分 ' + (delta >= 0 ? '+' : '') + delta + (reason ? '（' + reason + '）' : ''));
+}
+function getInventory(username) {
+    try { return JSON.parse(dataStore.get('siteInventory_' + username) || '{}'); } catch (e) { return {}; }
+}
+function saveInventory(username, inv) {
+    dataStore.set('siteInventory_' + username, JSON.stringify(inv || {}));
+}
+function ensureInventory(username) {
+    var inv = getInventory(username);
+    if (!inv || typeof inv !== 'object') inv = {};
+    return inv;
+}
+function startOfWeek(d) {
+    var day = (d.getDay() + 6) % 7;
+    var s = new Date(d.getFullYear(), d.getMonth(), d.getDate() - day);
+    return s;
+}
+function startOfMonth(d) {
+    return new Date(d.getFullYear(), d.getMonth(), 1);
+}
 function escHtml(str) {
     if (str == null) return '';
     var div = document.createElement('div');
@@ -4869,9 +5275,12 @@ function bindModalClosers(id) {
 var TASK_DEFS = [
     { id: 'signin', name: '每日签到', desc: '点击个人中心签到按钮完成签到', pts: 5, icon: '签' },
     { id: 'guestbook', name: '发布留言', desc: '在首页留言板发布一条留言', pts: 3, icon: '留' },
+    { id: 'moment', name: '发布动态', desc: '发布一条个人动态', pts: 3, icon: '动' },
     { id: 'comment', name: '发表评论', desc: '为一条内容发表评论', pts: 3, icon: '评' },
     { id: 'like', name: '点赞内容', desc: '为一条内容点赞', pts: 2, icon: '赞' },
-    { id: 'browse', name: '浏览内容', desc: '打开一条内容详情进行浏览', pts: 1, icon: '览' }
+    { id: 'browse', name: '浏览内容', desc: '打开一条内容详情进行浏览', pts: 1, icon: '览' },
+    { id: 'be_liked', name: '被点赞', desc: '自己的内容被他人点赞', pts: 2, icon: '赞' },
+    { id: 'be_commented', name: '被评论', desc: '自己的内容被他人评论', pts: 2, icon: '评' }
 ];
 var SHOP_ITEMS = [
     { id: 'badge_bronze', name: '铜质徽章', desc: '个人资料展示铜徽章', price: 150, type: 'badge', value: 'bronze', icon: '铜' },
@@ -4879,7 +5288,12 @@ var SHOP_ITEMS = [
     { id: 'badge_gold', name: '金质徽章', desc: '个人资料展示金徽章', price: 500, type: 'badge', value: 'gold', icon: '金' },
     { id: 'title_signer', name: '称号：签到狂魔', desc: '首页横幅展示专属称号', price: 400, type: 'title', value: '签到狂魔', icon: '签' },
     { id: 'title_star', name: '称号：互动之星', desc: '首页横幅展示专属称号', price: 600, type: 'title', value: '互动之星', icon: '星' },
-    { id: 'title_expert', name: '称号：内容达人', desc: '首页横幅展示专属称号', price: 800, type: 'title', value: '内容达人', icon: '达' }
+    { id: 'title_expert', name: '称号：内容达人', desc: '首页横幅展示专属称号', price: 800, type: 'title', value: '内容达人', icon: '达' },
+    { id: 'title_royal', name: '称号：至尊王者', desc: '全站最高荣誉称号', price: 1200, type: 'title', value: '至尊王者', icon: '王' },
+    { id: 'frame_silver', name: '头像框：银色边框', desc: '头像外环绕银色边框', price: 250, type: 'frame', value: 'silver', icon: '银' },
+    { id: 'frame_gold', name: '头像框：金色光环', desc: '头像外环绕金色光环', price: 450, type: 'frame', value: 'gold', icon: '金' },
+    { id: 'frame_rainbow', name: '头像框：彩虹渐变', desc: '头像外环绕彩虹渐变', price: 700, type: 'frame', value: 'rainbow', icon: '彩' },
+    { id: 'frame_star', name: '头像框：星光闪耀', desc: '头像外环绕星光闪耀', price: 900, type: 'frame', value: 'star', icon: '星' }
 ];
 
 function getTaskData(username) {
@@ -4902,24 +5316,44 @@ function ensureTaskData(username) {
 }
 function logTaskPoints(username, pts, desc) {
     if (!username || !pts) return;
-    var growth = window.getGrowth(username);
-    growth.points = (growth.points || 0) + pts;
-    window.saveGrowth(username, growth);
+    recordPointFlow(username, pts, desc);
     var data = ensureTaskData(username);
     data.logs.unshift({ time: nowTextStr(), action: desc, pts: pts });
     if (data.logs.length > 200) data.logs.length = 200;
     saveTaskData(username, data);
-    window.addLog('points', '用户 ' + username + ' 积分 +' + pts + '（' + desc + '）');
+    window.addLog('points', '用户 ' + username + ' 积分 ' + (pts >= 0 ? '+' : '') + pts + '（' + desc + '）');
 }
 
 window.markTaskDone = function (taskId) {
     var session = window.getSession();
     if (!session || !session.username) return;
-    var data = ensureTaskData(session.username);
-    if (data.tasks[taskId]) data.tasks[taskId].done = 1;
-    saveTaskData(session.username, data);
+    markTaskDoneInternal(taskId, session.username);
     if (document.getElementById('taskCenterPanel')) window.renderTaskCenter();
 };
+
+window.markTaskDoneFor = function (username, taskId) {
+    if (!username) return;
+    markTaskDoneInternal(taskId, username);
+    var session = window.getSession();
+    if (document.getElementById('taskCenterPanel') && session && session.username === username) window.renderTaskCenter();
+};
+
+function markTaskDoneInternal(taskId, username) {
+    if (!username) return;
+    var data = ensureTaskData(username);
+    if (data.tasks[taskId]) data.tasks[taskId].done = 1;
+    saveTaskData(username, data);
+    // 被点赞/被评论类任务无需操作即自动完成
+    if (taskId === 'be_liked' || taskId === 'be_commented') {
+        var def = null;
+        for (var i = 0; i < TASK_DEFS.length; i++) { if (TASK_DEFS[i].id === taskId) def = TASK_DEFS[i]; }
+        if (def && data.tasks[taskId] && !data.tasks[taskId].claimed) {
+            data.tasks[taskId].claimed = 1;
+            saveTaskData(username, data);
+            logTaskPoints(username, def.pts, '完成任务：' + def.name);
+        }
+    }
+}
 
 window.claimTask = function (taskId) {
     var session = window.getSession();
@@ -4974,21 +5408,8 @@ window.renderTaskCenter = function () {
         html += '</tbody></table>';
     }
 
-    // 积分商城
-    var growth = window.getGrowth(session.username);
-    html += '<div class="task-section-title">积分商城 <span class="shop-balance">当前积分：<b>' + (growth.points || 0) + '</b></span></div>';
-    html += '<div class="shop-grid">';
-    for (var s = 0; s < SHOP_ITEMS.length; s++) {
-        var item = SHOP_ITEMS[s];
-        var own = (item.type === 'badge' ? (getFullUserByName(session.username).badge === item.value) : (getFullUserByName(session.username).title === item.value));
-        html += '<div class="shop-item"><div class="shop-item-icon">' + item.icon + '</div>' +
-            '<div class="shop-item-name">' + escHtml(item.name) + '</div>' +
-            '<div class="shop-item-desc">' + escHtml(item.desc) + '</div>' +
-            '<div class="shop-item-price">' + item.price + ' 积分</div>' +
-            (own ? '<span class="shop-owned">已拥有</span>' : '<button class="btn btn-secondary btn-xs" onclick="window.redeemItem(\'' + item.id + '\')">兑换</button>') +
-            '</div>';
-    }
-    html += '</div>';
+    // 积分商城（完整版含背包与佩戴/卸下）
+    html += window.renderShopPanel ? window.renderShopPanel(session.username) : '<p class="empty-tip">商城加载失败</p>';
     panel.innerHTML = html;
 };
 
@@ -5000,24 +5421,167 @@ window.redeemItem = function (itemId) {
     if (!item) return;
     var growth = window.getGrowth(session.username);
     if ((growth.points || 0) < item.price) { alert('积分不足，需要 ' + item.price + ' 积分'); return; }
-    var users = window.getUsers();
-    var user = getFullUserByName(session.username);
-    if (!user) { alert('用户不存在'); return; }
-    growth.points -= item.price;
-    window.saveGrowth(session.username, growth);
-    if (item.type === 'badge') user.badge = item.value;
-    if (item.type === 'title') user.title = item.value;
-    for (var u = 0; u < users.length; u++) { if (users[u].username === session.username) users[u] = user; }
-    window.saveUsers(users);
+    var inv = getInventory(session.username);
+    if (inv[itemId]) { alert('您已拥有该装扮'); return; }
+    inv[itemId] = { id: itemId, boughtAt: Date.now() };
+    saveInventory(session.username, inv);
+    // recordPointFlow 会统一扣减 growth 积分 + 写流水 + 留痕（避免与 saveGrowth 双重扣分）
+    recordPointFlow(session.username, -item.price, '兑换装扮：' + item.name);
     var data = ensureTaskData(session.username);
     data.redeemed.unshift({ time: nowTextStr(), item: item.name, cost: item.price });
     if (data.redeemed.length > 100) data.redeemed.length = 100;
     data.logs.unshift({ time: nowTextStr(), action: '兑换：' + item.name, pts: -item.price });
     saveTaskData(session.username, data);
     window.addLog('redeem', '用户 ' + session.username + ' 兑换 ' + item.name + '（' + item.price + ' 积分）');
+    equipItem(session.username, item);
     window.renderTaskCenter();
-    window.applyUserDressing && window.applyUserDressing();
-    alert('兑换成功！' + item.name + ' 已生效，可在个人资料与首页查看');
+    if (document.getElementById('shopPanel')) window.renderShopPanel(session.username);
+    if (document.getElementById('pointLogPanel')) window.renderPointLogPanel(session.username);
+    if (window.applyUserDressing) window.applyUserDressing();
+    alert('兑换成功！' + item.name + ' 已加入背包并自动佩戴');
+};
+
+window.renderShopPanel = function (username) {
+    var session = window.getSession();
+    username = username || (session && session.username);
+    if (!username) return '<p class="empty-tip">请先登录</p>';
+    var growth = window.getGrowth(username);
+    var inv = getInventory(username);
+    var user = getFullUserByName(username);
+    var ownIds = {};
+    for (var k in inv) { if (Object.prototype.hasOwnProperty.call(inv, k)) ownIds[k] = true; }
+    function isEquipped(item) {
+        return user && ((item.type === 'badge' && user.badge === item.value) || (item.type === 'title' && user.title === item.value) || (item.type === 'frame' && user.avatarFrame === item.value));
+    }
+    function itemActions(item) {
+        var owned = !!ownIds[item.id];
+        var equipped = isEquipped(item);
+        if (owned && equipped) return '<span class="shop-owned">佩戴中</span><button class="btn btn-secondary btn-xs" onclick="window.unequipItem(\'' + item.type + '\')">卸下</button>';
+        if (owned) return '<button class="btn btn-primary btn-xs" onclick="window.equipItem(window.getSession().username,{type:\'' + item.type + '\',value:\'' + item.value + '\',name:\'' + item.name + '\'})">佩戴</button>';
+        return '<button class="btn btn-secondary btn-xs" onclick="window.redeemItem(\'' + item.id + '\')">兑换</button>';
+    }
+    var html = '<div class="shop-balance">当前积分：<b>' + (growth.points || 0) + '</b></div>';
+    html += '<div class="shop-section-title">装扮商城</div><div class="shop-grid">';
+    for (var i = 0; i < SHOP_ITEMS.length; i++) {
+        var item = SHOP_ITEMS[i];
+        html += '<div class="shop-item' + (ownIds[item.id] ? ' owned' : '') + '">' +
+            '<div class="shop-item-icon">' + item.icon + '</div>' +
+            '<div class="shop-item-name">' + escHtml(item.name) + '</div>' +
+            '<div class="shop-item-desc">' + escHtml(item.desc) + '</div>' +
+            '<div class="shop-item-price">' + item.price + ' 积分</div>' +
+            '<div class="shop-item-actions">' + itemActions(item) + '</div></div>';
+    }
+    html += '</div>';
+    html += '<div class="shop-section-title">我的背包</div><div class="shop-grid">';
+    var ownedList = SHOP_ITEMS.filter(function (it) { return ownIds[it.id]; });
+    if (!ownedList.length) html += '<p class="empty-tip">背包空空，快去商城兑换装扮吧</p>';
+    else {
+        for (var j = 0; j < ownedList.length; j++) {
+            var oi = ownedList[j];
+            html += '<div class="shop-item' + (isEquipped(oi) ? ' equipped' : '') + '">' +
+                '<div class="shop-item-icon">' + oi.icon + '</div>' +
+                '<div class="shop-item-name">' + escHtml(oi.name) + (isEquipped(oi) ? '（佩戴中）' : '') + '</div>' +
+                '<div class="shop-item-desc">' + escHtml(oi.desc) + '</div>' +
+                '<div class="shop-item-actions">' + itemActions(oi) + '</div></div>';
+        }
+    }
+    html += '</div>';
+    return html;
+};
+
+window.renderPointLogPanel = function (username) {
+    var session = window.getSession();
+    username = username || (session && session.username);
+    if (!username) return '<p class="empty-tip">请先登录</p>';
+    var logs = getPointLog(username);
+    var html = '<div class="task-section-title">积分明细</div>';
+    if (!logs.length) html += '<p class="empty-tip">暂无积分流水，快去赚积分吧</p>';
+    else {
+        html += '<table class="point-log-table"><thead><tr><th>时间</th><th>原因</th><th>积分</th></tr></thead><tbody>';
+        for (var i = 0; i < Math.min(logs.length, 100); i++) {
+            var lg = logs[i];
+            html += '<tr><td>' + escHtml(lg.time) + '</td><td>' + escHtml(lg.reason || '') + '</td><td style="color:' + (lg.delta >= 0 ? '#38a169' : '#e53e3e') + ';">' + (lg.delta >= 0 ? '+' : '') + lg.delta + '</td></tr>';
+        }
+        html += '</tbody></table>';
+    }
+    return html;
+};
+
+window.renderPointsRank = function (scope) {
+    var users = window.getUsers();
+    var rows = [];
+    var weekStart = startOfWeek(new Date());
+    var monthStart = startOfMonth(new Date());
+    var meName = (window.getSession() || {}).username || '';
+    for (var i = 0; i < users.length; i++) {
+        var u = users[i];
+        if (!u || !u.username) continue;
+        var pts = 0;
+        if (scope === 'week') {
+            var wl = getPointLog(u.username).filter(function (l) { return l.ts >= weekStart; });
+            for (var w = 0; w < wl.length; w++) pts += wl[w].delta;
+        } else if (scope === 'month') {
+            var ml = getPointLog(u.username).filter(function (l) { return l.ts >= monthStart; });
+            for (var m = 0; m < ml.length; m++) pts += ml[m].delta;
+        } else {
+            pts = ((window.getGrowth(u.username) || {}).points) || 0;
+        }
+        rows.push({ name: u.nickname || u.username, username: u.username, pts: pts });
+    }
+    rows.sort(function (a, b) { return b.pts - a.pts; });
+    var html = '<div class="rank-switch">' +
+        '<button class="btn btn-xs ' + (!scope || scope === 'total' ? 'btn-primary' : 'btn-secondary') + '" onclick="window.renderPointsRank(\'total\')">总榜</button> ' +
+        '<button class="btn btn-xs ' + (scope === 'week' ? 'btn-primary' : 'btn-secondary') + '" onclick="window.renderPointsRank(\'week\')">周榜</button> ' +
+        '<button class="btn btn-xs ' + (scope === 'month' ? 'btn-primary' : 'btn-secondary') + '" onclick="window.renderPointsRank(\'month\')">月榜</button></div>';
+    html += '<ol class="rank-list">';
+    for (var r = 0; r < Math.min(rows.length, 50); r++) {
+        var rank = r + 1;
+        var medal = rank === 1 ? '🥇' : (rank === 2 ? '🥈' : (rank === 3 ? '🥉' : rank));
+        html += '<li class="rank-item' + (rows[r].username === meName ? ' mine' : '') + '"><span class="rank-no">' + medal + '</span>' +
+            '<span class="rank-name">' + escHtml(rows[r].name) + '</span><span class="rank-value">' + rows[r].pts + ' 分</span></li>';
+    }
+    html += '</ol>';
+    var meIdx = -1;
+    for (var mi = 0; mi < rows.length; mi++) { if (rows[mi].username === meName) { meIdx = mi + 1; break; } }
+    html += '<div class="my-rank">我的排名：';
+    if (meIdx === -1) html += '未上榜（暂无积分记录）';
+    else html += '第 <b>' + meIdx + '</b> 名（' + rows[meIdx - 1].pts + ' 分）' + (meIdx <= 3 ? ' 🏆' : '');
+    html += '</div>';
+    var target = document.getElementById('pointsRankList');
+    if (target) { target.innerHTML = html; target.setAttribute('data-scope', scope || 'total'); }
+    return html;
+};
+
+function equipItem(username, item) {
+    if (!username || !item) return;
+    var users = window.getUsers();
+    var user = getFullUserByName(username);
+    if (!user) return;
+    if (item.type === 'frame') user.avatarFrame = item.value;
+    else if (item.type === 'badge') user.badge = item.value;
+    else if (item.type === 'title') user.title = item.value;
+    for (var u = 0; u < users.length; u++) { if (users[u].username === username) users[u] = user; }
+    window.saveUsers(users);
+    window.addLog('equip', '用户 ' + username + ' 佩戴 ' + item.name);
+}
+window.equipItem = equipItem;
+
+window.unequipItem = function (type) {
+    var session = window.getSession();
+    if (!session || !session.username) { alert('请先登录'); return; }
+    var users = window.getUsers();
+    var user = getFullUserByName(session.username);
+    if (!user) return;
+    var typeName = (type === 'frame' ? '头像框' : (type === 'badge' ? '徽章' : '称号'));
+    if (type === 'frame') user.avatarFrame = 'none';
+    else if (type === 'badge') user.badge = '';
+    else if (type === 'title') user.title = '';
+    for (var u = 0; u < users.length; u++) { if (users[u].username === session.username) users[u] = user; }
+    window.saveUsers(users);
+    window.addLog('unequip', '用户 ' + session.username + ' 卸下 ' + typeName);
+    if (window.applyUserDressing) window.applyUserDressing();
+    if (document.getElementById('shopPanel')) window.renderShopPanel(session.username);
+    alert('已卸下' + typeName);
 };
 
 // ==================== 2. 相册画廊 ====================
@@ -5833,6 +6397,9 @@ window.renderPollsAdmin = function () {
         if (document.getElementById('albumMasonry')) window.renderPublicAlbums();
         if (document.getElementById('notifyBell')) window.renderNotifyBadge();
         if (document.getElementById('taskCenterPanel')) window.renderTaskCenter();
+        if (document.getElementById('shopPanel')) window.renderShopPanel();
+        if (document.getElementById('pointLogPanel')) window.renderPointLogPanel();
+        if (document.getElementById('pointsRankList')) window.renderPointsRank('total');
         if (document.getElementById('myAlbumsList')) window.renderMyAlbums();
         if (document.getElementById('myPollsList')) window.renderMyPolls();
         if (document.getElementById('dressingPanel')) window.renderDressing();
@@ -5879,7 +6446,7 @@ window.renderPollsAdmin = function () {
 
         // hash 路由：支持 profile.html#task / #albums / #polls 等直达标签页
         var hashTab = String(location.hash || '').replace('#', '');
-        var allowedTabs = ['personal', 'security', 'task', 'albums', 'polls', 'messages', 'favorites', 'timeline', 'friends', 'diary', 'track', 'growth', 'social'];
+        var allowedTabs = ['personal', 'security', 'task', 'shop', 'points', 'albums', 'polls', 'messages', 'favorites', 'timeline', 'friends', 'diary', 'track', 'growth', 'social'];
         if (allowedTabs.indexOf(hashTab) !== -1) {
             var hashBtn = document.querySelector('.tab-btn[data-tab="' + hashTab + '"]');
             if (hashBtn) hashBtn.click();

@@ -58,6 +58,10 @@
                 <li><a href="#" class="drawer-link" data-tab="polls"><span class="drawer-icon">🗳️</span>投票管理</a></li>
                 <li><a href="#" class="drawer-link" data-tab="messages"><span class="drawer-icon">✉️</span>消息通知</a></li>
             </ul>
+            <div class="drawer-section-title">积分</div>
+            <ul class="drawer-nav">
+                <li><a href="#" class="drawer-link" data-tab="points"><span class="drawer-icon">⭐</span>积分管理</a></li>
+            </ul>
             <div class="drawer-section-title">系统</div>
             <ul class="drawer-nav">
                 <li><a href="#" class="drawer-link" data-tab="settings"><span class="drawer-icon">⚙️</span>系统设置</a></li>
@@ -111,6 +115,9 @@
                 <li><a href="#" data-tab="albums"><span class="nav-icon">🖼️</span><span class="nav-text">相册管理</span></a></li>
                 <li><a href="#" data-tab="polls"><span class="nav-icon">🗳️</span><span class="nav-text">投票管理</span></a></li>
                 <li><a href="#" data-tab="messages"><span class="nav-icon">✉️</span><span class="nav-text">消息通知</span></a></li>
+
+                <li class="sidebar-group-title">积分</li>
+                <li><a href="#" data-tab="points"><span class="nav-icon">⭐</span><span class="nav-text">积分管理</span></a></li>
 
                 <li class="sidebar-group-title">系统</li>
                 <li><a href="#" data-tab="settings"><span class="nav-icon">⚙️</span><span class="nav-text">系统设置</span></a></li>
@@ -255,6 +262,7 @@
                     <button onclick="batchToggleUsers(true)" class="btn btn-secondary btn-sm">批量禁用</button>
                     <button onclick="batchToggleUsers(false)" class="btn btn-secondary btn-sm">批量启用</button>
                     <button onclick="deleteSelectedUsers()" class="btn btn-danger btn-sm" id="batchDeleteUsersBtn">批量删除</button>
+                    <button onclick="adminWipeAllUsers()" class="btn btn-danger btn-sm" id="wipeAllUsersBtn">一键删除所有用户数据</button>
                 </div>
                 <div class="table-wrapper">
                     <table>
@@ -610,6 +618,11 @@
                         <tbody id="logsTableBody"></tbody>
                     </table>
                 </div>
+            </section>
+
+            <!-- 积分管理 -->
+            <section id="tab-points" class="tab-panel">
+                <div id="pointsAdminWrap"></div>
             </section>
         </div>
     </main>
