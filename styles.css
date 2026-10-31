@@ -6243,3 +6243,37 @@ body.user-themed { background: linear-gradient(135deg, var(--user-accent1), var(
         background: #232841;
     }
 }
+
+/* =====================================================
+   手机/平板端导航加固（末尾兜底）：
+   1) 侧栏按钮(汉堡)完整可见：防 flex 收缩挤压、提升层级
+   2) 顶部搜索框收窄：避免占满整行挤占汉堡与通知
+   ===================================================== */
+@media (max-width: 1023px) {
+    .top-nav-drawer {
+        position: relative;
+        z-index: 100;
+    }
+    .top-nav-drawer .nav-right {
+        flex-wrap: nowrap;
+        min-width: 0;
+    }
+    .top-nav-drawer .nav-toggle,
+    .top-nav-drawer .nav-right .notify-bell {
+        flex-shrink: 0;
+    }
+    .top-nav-drawer .nav-right .nav-search {
+        flex: 0 1 180px;
+        max-width: 46vw;
+        min-width: 0;
+    }
+    .top-nav-drawer .nav-right .nav-search input {
+        min-width: 0;
+    }
+}
+@media (max-width: 767px) {
+    .top-nav-drawer .nav-right .nav-search {
+        flex: 0 1 150px;
+        max-width: 42vw;
+    }
+}

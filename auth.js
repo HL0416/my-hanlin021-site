@@ -388,15 +388,17 @@
                 }
                 id = (maxAdmin + 1).toString();
             } else {
-                // 普通用户：从10000001开始递增
-                var maxUser = 10000000;
+                // 普通用户：生成 8 位随机数字账号（10000000~99999999），与所有已存在账号不重复
+                var used = {};
                 for (var j = 0; j < users.length; j++) {
-                    var uId2 = parseInt(users[j].accountId, 10);
-                    if (!isNaN(uId2) && users[j].role !== 'admin') {
-                        if (uId2 > maxUser) maxUser = uId2;
-                    }
+                    if (users[j].accountId) { used[users[j].accountId] = true; }
                 }
-                id = (maxUser + 1).toString();
+                var attempts = 0;
+                do {
+                    id = String(Math.floor(10000000 + Math.random() * 90000000));
+                    attempts++;
+                    if (attempts > 10000) { id = ''; break; }
+                } while (used[id]);
             }
             exists = false;
             for (var k = 0; k < users.length; k++) {
