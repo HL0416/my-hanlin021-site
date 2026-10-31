@@ -6277,3 +6277,59 @@ body.user-themed { background: linear-gradient(135deg, var(--user-accent1), var(
         max-width: 42vw;
     }
 }
+
+/* =====================================================
+   管理后台全站架构统一（admin.html 顶部导航/抽屉向首页、个人页看齐）
+   仅增强新增元素样式与手机端顶栏切换；不触碰既有后台样式与 DOM id
+   ===================================================== */
+
+/* 1. 全站顶部导航内「管理控制台」副标 */
+.admin-page .top-nav-drawer .admin-nav-sub {
+    display: inline-block;
+    margin-left: 10px;
+    padding: 2px 10px;
+    border-radius: 999px;
+    background: #eef1fb;
+    color: #5a6aa8;
+    font-size: 12px;
+    font-weight: 600;
+    border: 1px solid #dde3f7;
+    white-space: nowrap;
+    line-height: 1.6;
+}
+[data-theme="dark"] .admin-page .top-nav-drawer .admin-nav-sub {
+    background: #262c3f;
+    border-color: #333a52;
+    color: #a9b4e0;
+}
+
+/* 2. 手机端 (<=767px)：原 admin-mobile-bar 由全站顶部导航接管（元素保留、功能 id 不动） */
+@media (max-width: 767px) {
+    .admin-page .admin-mobile-bar {
+        display: none !important;
+    }
+    /* 顶部导航单栏后，主内容区与顶栏间距收敛 */
+    .admin-page .admin-main {
+        padding-top: 12px;
+    }
+    /* 手机端抽屉内管理分组导航：分组标题与首页一致留白 */
+    .admin-page .nav-drawer .drawer-section-title {
+        margin: 16px 8px 6px;
+    }
+}
+
+/* 3. 平板 (768-1023px)：全站顶部导航 + 原 admin-header 内容头部并存 */
+@media (min-width: 768px) and (max-width: 1023px) {
+    .admin-page .admin-header {
+        margin: 0 12px;
+        border-radius: 0 0 12px 12px;
+    }
+}
+
+/* 4. 桌面 (>=1024px)：全站顶部导航与侧栏并存，admin-header 作为内容头部 */
+@media (min-width: 1024px) {
+    .admin-page .top-nav-drawer {
+        position: relative;
+        z-index: 60;
+    }
+}

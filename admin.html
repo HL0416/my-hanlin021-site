@@ -9,6 +9,72 @@
     <link rel="stylesheet" href="styles.css">
 </head>
 <body class="admin-page">
+    <!-- 全站统一顶部导航（与首页/个人页同款；手机端由汉堡打开抽屉导航） -->
+    <nav class="top-nav top-nav-drawer">
+        <div class="nav-left">
+            <span class="site-brand">我的站点</span>
+            <span class="admin-nav-sub">管理控制台</span>
+        </div>
+        <div class="nav-right">
+            <button id="navToggle" class="nav-toggle" aria-label="菜单">&#9776;</button>
+            <button id="themeToggle" class="btn btn-ghost btn-sm theme-btn">深色模式</button>
+            <a href="index.html" class="btn btn-ghost btn-sm">返回首页</a>
+            <a href="profile.html" class="btn btn-primary btn-sm">个人信息</a>
+        </div>
+    </nav>
+
+    <!-- 全站统一导航抽屉（手机/平板）：管理分组导航 + 我的入口，与首页抽屉同款交互 -->
+    <div class="nav-drawer" id="navDrawer">
+        <div class="drawer-header">
+            <span class="site-brand">我的站点</span>
+            <button id="drawerCloseBtn" class="drawer-close-btn" aria-label="关闭抽屉">&times;</button>
+        </div>
+        <div class="drawer-body">
+            <div class="drawer-section-title">概览</div>
+            <ul class="drawer-nav">
+                <li><a href="#" class="drawer-link" data-tab="dashboard"><span class="drawer-icon">📊</span>仪表盘</a></li>
+            </ul>
+            <div class="drawer-section-title">用户</div>
+            <ul class="drawer-nav">
+                <li><a href="#" class="drawer-link" data-tab="users"><span class="drawer-icon">👥</span>用户管理</a></li>
+            </ul>
+            <div class="drawer-section-title">内容</div>
+            <ul class="drawer-nav">
+                <li><a href="#" class="drawer-link" data-tab="content"><span class="drawer-icon">📄</span>内容管理</a></li>
+                <li><a href="#" class="drawer-link" data-tab="announcements"><span class="drawer-icon">📢</span>公告管理</a></li>
+            </ul>
+            <div class="drawer-section-title">文件</div>
+            <ul class="drawer-nav">
+                <li><a href="#" class="drawer-link" data-tab="files"><span class="drawer-icon">📁</span>文件管理</a></li>
+            </ul>
+            <div class="drawer-section-title">留言反馈</div>
+            <ul class="drawer-nav">
+                <li><a href="#" class="drawer-link" data-tab="guestbook"><span class="drawer-icon">💬</span>留言管理</a></li>
+                <li><a href="#" class="drawer-link" data-tab="feedback"><span class="drawer-icon">📝</span>反馈管理</a></li>
+            </ul>
+            <div class="drawer-section-title">相册投票</div>
+            <ul class="drawer-nav">
+                <li><a href="#" class="drawer-link" data-tab="albums"><span class="drawer-icon">🖼️</span>相册管理</a></li>
+                <li><a href="#" class="drawer-link" data-tab="polls"><span class="drawer-icon">🗳️</span>投票管理</a></li>
+                <li><a href="#" class="drawer-link" data-tab="messages"><span class="drawer-icon">✉️</span>消息通知</a></li>
+            </ul>
+            <div class="drawer-section-title">系统</div>
+            <ul class="drawer-nav">
+                <li><a href="#" class="drawer-link" data-tab="settings"><span class="drawer-icon">⚙️</span>系统设置</a></li>
+                <li><a href="#" class="drawer-link" data-tab="logs"><span class="drawer-icon">🧾</span>操作日志</a></li>
+                <li><a href="#" class="drawer-link" data-tab="settings"><span class="drawer-icon">💾</span>备份恢复</a></li>
+            </ul>
+            <div class="drawer-section-title">我的</div>
+            <ul class="drawer-nav">
+                <li><a href="index.html" class="drawer-link"><span class="drawer-icon">🏠</span>返回首页</a></li>
+                <li><a href="profile.html" class="drawer-link"><span class="drawer-icon">👤</span>个人信息</a></li>
+                <li><a href="#" class="drawer-link" id="drawerThemeBtn"><span class="drawer-icon">🌙</span>深色模式</a></li>
+                <li><a href="#" class="drawer-link drawer-danger" id="drawerLogoutBtn"><span class="drawer-icon">↪</span>退出登录</a></li>
+            </ul>
+        </div>
+    </div>
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
     <!-- 手机端顶部工具栏 -->
     <div class="admin-mobile-bar">
         <button id="adminMobileToggle" class="admin-mobile-toggle" aria-label="展开菜单">&#9776;</button>
@@ -711,5 +777,63 @@
     </div>
 
     <script src="auth.js"></script>
+    <script>
+    // ===== 管理后台统一导航抽屉（与首页/个人页同款交互：汉堡展开、遮罩/关闭按钮收起） =====
+    (function() {
+        var drawer = document.getElementById('navDrawer');
+        var overlay = document.getElementById('sidebarOverlay');
+        var toggleBtn = document.getElementById('navToggle');
+        var closeBtn = document.getElementById('drawerCloseBtn');
+        if (!drawer || !overlay || !toggleBtn) return;
+
+        function openDrawer() {
+            drawer.classList.add('open');
+            overlay.classList.add('show');
+        }
+        function closeDrawer() {
+            drawer.classList.remove('open');
+            overlay.classList.remove('show');
+        }
+
+        toggleBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            if (drawer.classList.contains('open')) {
+                closeDrawer();
+            } else {
+                openDrawer();
+            }
+        });
+        overlay.addEventListener('click', closeDrawer);
+        if (closeBtn) closeBtn.addEventListener('click', closeDrawer);
+
+        // 抽屉内管理分组导航：复用 auth.js 全局 switchTab 切换标签页，并收起抽屉
+        drawer.querySelectorAll('.drawer-link[data-tab]').forEach(function(link) {
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+                var tab = this.getAttribute('data-tab');
+                if (tab && window.switchTab) window.switchTab(tab);
+                closeDrawer();
+            });
+        });
+
+        // 抽屉内深色模式 / 退出登录：复用顶部与侧栏既有按钮
+        var themeBtn = document.getElementById('drawerThemeBtn');
+        if (themeBtn) {
+            themeBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                var t = document.getElementById('themeToggle');
+                if (t) t.click();
+            });
+        }
+        var logoutBtn = document.getElementById('drawerLogoutBtn');
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                var l = document.getElementById('logoutBtn');
+                if (l) l.click();
+            });
+        }
+    })();
+    </script>
 </body>
 </html>
