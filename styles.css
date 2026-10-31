@@ -6333,3 +6333,51 @@ body.user-themed { background: linear-gradient(135deg, var(--user-accent1), var(
         z-index: 60;
     }
 }
+
+/* =====================================================
+   管理后台手机端干净统一（修复悬浮标签/底部导航叠加遮挡）：
+   根因：body.admin-page 沿用旧版 flex 居中布局（align-items:center /
+   justify-content:center），全站顶栏 .top-nav 作为 flex item 被垂直居中
+   悬浮于超高内容区之上，形成“管理控制台 / 个人信息 / ≡菜单”悬浮标签
+   覆盖数据卡片；admin-main 同时被挤出左侧产生错位。
+   修复：后台页恢复块级流式布局，顶栏回到页面顶部；
+   手机/平板（≤1023px）后台导航统一由全站顶部导航 + 白底抽屉承担，
+   隐藏旧后台侧栏、旧手机工具栏、旧遮罩及一切移动专属悬浮/底部导航；
+   仅隐藏显示、保留 DOM 与 id，不触碰 auth.js 绑定与后台功能。
+   ===================================================== */
+/* 0. 全端：修正 body.admin-page 旧 flex 居中（登录容器已废弃，无副作用） */
+body.admin-page {
+    display: block !important;
+    align-items: normal !important;
+    justify-content: normal !important;
+}
+
+/* 1. 手机/平板：只保留全站顶部导航 + 白底抽屉，隐藏冗余悬浮元素 */
+@media (max-width: 1023px) {
+    .admin-page .admin-sidebar,
+    .admin-page #adminSidebar {
+        display: none !important;
+    }
+    .admin-page #adminSidebarOverlay {
+        display: none !important;
+    }
+    .admin-page .admin-mobile-bar {
+        display: none !important;
+    }
+    .admin-page .admin-main {
+        margin-left: 0 !important;
+        width: 100%;
+        padding-top: 12px;
+    }
+    .admin-page .top-nav-drawer {
+        position: relative;
+        z-index: 100;
+    }
+    /* 兜底隔离：后台页任何移动专属悬浮/底部导航均隐藏，杜绝重叠 */
+    .admin-page .bottom-nav,
+    .admin-page #bottomNav,
+    .admin-page .fab-group,
+    .admin-page .floating-actions {
+        display: none !important;
+    }
+}
