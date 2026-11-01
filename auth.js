@@ -99,6 +99,8 @@
             try { localArr = JSON.parse(readLocal('users') || '[]'); } catch (e) { localArr = []; }
             if (!Array.isArray(localArr)) localArr = [];
             var deleted = getDeletedUsers();
+            // 内置超级管理员 admin 永不因墓碑被剔除（账号保护，防止误删/历史墓碑导致管理员无法登录）
+            deleted = deleted.filter(function (n) { return n !== 'admin'; });
             var map = {};
             var order = [];
             function put(u) {
@@ -130,8 +132,16 @@
             }
             var merged = [];
             for (var k = 0; k < order.length; k++) merged.push(map[order[k]]);
+            // 内置管理员兜底：合并后缺失 admin 时重建默认账号，防止云端丢失/墓碑异常导致管理员永久丢失
+            var hasAdmin = false;
+            for (var a = 0; a < merged.length; a++) {
+                if (merged[a] && merged[a].username === 'admin') { hasAdmin = true; break; }
+            }
+            if (!hasAdmin) {
+                merged.push({ username: 'admin', password: 'admin', role: 'super_admin', createdAt: Date.now(), accountId: '1000' });
+            }
             writeLocal('users', JSON.stringify(merged));
-            var dirty = localOnly.length > 0 || newDeleted.length !== deleted.length || tombResidue;
+            var dirty = localOnly.length > 0 || newDeleted.length !== deleted.length || tombResidue || !hasAdmin;
             if (dirty) {
                 pushCloud('users', merged);
                 saveDeletedUsers(newDeleted);
@@ -613,6 +623,7 @@
             }
         }
         users.push({ username: 'admin', password: 'admin', role: 'super_admin', createdAt: Date.now(), accountId: '1000' });
+        dataStore.unmarkUserDeleted('admin'); // 内置管理员重建时同步清除墓碑，防止后续合并再次剔除
         saveUsers(users);
     })();
 
@@ -622,6 +633,10 @@
         regForm.addEventListener('submit', function (e) {
             e.preventDefault();
             clearError();
+
+            // 登录设置：注册开关与密码最小长度规则
+            var _regCfg = getLoginSettings();
+            if (!_regCfg.registerEnabled) { showError('系统暂未开放注册'); return; }
 
             var username = document.getElementById('regUsername').value.trim();
             var password = document.getElementById('regPassword').value;
@@ -635,6 +650,7 @@
             if (phone && !isValidPhone(phone)) { showError('手机号格式不正确（11位，1开头）'); return; }
             if (email && !isValidEmail(email)) { showError('邮箱格式不正确'); return; }
 
+            if (password.length < _regCfg.minPasswordLength) { showError('密码长度不能少于 ' + _regCfg.minPasswordLength + ' 位'); return; }
             var strength = checkPasswordStrength(password);
             if (!strength.ok) { showError(strength.tip); return; }
             if (password !== confirm) { showError('两次输入的密码不一致'); return; }
@@ -679,6 +695,12 @@
             if (!strengthEl) return;
             var val = this.value;
             if (!val) { strengthEl.textContent = ''; return; }
+            var _minLen = getLoginSettings().minPasswordLength;
+            if (val.length < _minLen) {
+                strengthEl.textContent = '密码长度不能少于 ' + _minLen + ' 位';
+                strengthEl.className = 'password-hint strength-weak';
+                return;
+            }
             var strength = checkPasswordStrength(val);
             strengthEl.textContent = strength.tip;
             strengthEl.className = 'password-hint strength-' + strength.level;
@@ -735,11 +757,30 @@
         });
     }
 
+    // ===== 登录设置开关：按后台配置显隐登录方式与字段 =====
+    var _authCfg = getLoginSettings();
+    var _visModes = [];
+    if (_authCfg.passwordLogin) _visModes.push('password');
+    if (_authCfg.codeLogin) _visModes.push('code');
+    if (loginModeSwitch) {
+        var _btns = loginModeSwitch.querySelectorAll('.mode-btn');
+        for (var _i = 0; _i < _btns.length; _i++) {
+            var _m = _btns[_i].getAttribute('data-mode');
+            if (_m === 'password') _btns[_i].style.display = _authCfg.passwordLogin ? '' : 'none';
+            else if (_m === 'code') _btns[_i].style.display = _authCfg.codeLogin ? '' : 'none';
+        }
+        loginModeSwitch.style.display = _visModes.length > 1 ? '' : 'none';
+        // 当前登录方式被禁用时，切到剩余可用方式
+        if (_visModes.length > 0 && _visModes.indexOf(loginMode) === -1) setLoginMode(_visModes[0]);
+    }
+    if (sendCodeBtn) sendCodeBtn.disabled = !_authCfg.captchaEnabled;
+
     // 获取验证码：校验账号为已注册手机号/邮箱，生成6位数字验证码并存入 localStorage，页面提示模拟发送
     if (sendCodeBtn) {
         sendCodeBtn.addEventListener('click', function () {
             clearError();
             hideCodeNotice();
+            if (!getLoginSettings().captchaEnabled) { showError('验证码功能已关闭'); return; }
             var account = document.getElementById('username').value.trim();
             if (!account) { showError('请先输入手机号或邮箱'); return; }
             if (!isValidPhone(account) && !isValidEmail(account)) {
@@ -773,6 +814,12 @@
             e.preventDefault();
             clearError();
             hideCodeNotice();
+
+            // 登录设置守卫：登录方式均关闭或当前方式被禁用时拦截
+            var _authGuard = getLoginSettings();
+            if (!_authGuard.passwordLogin && !_authGuard.codeLogin) { showError('系统暂未开放登录'); return; }
+            if (loginMode === 'password' && !_authGuard.passwordLogin) { showError('密码登录已关闭，请使用验证码登录'); return; }
+            if (loginMode === 'code' && !_authGuard.codeLogin) { showError('验证码登录已关闭，请使用密码登录'); return; }
 
             var account = document.getElementById('username').value.trim();
             var users = getUsers();
@@ -3708,12 +3755,14 @@ function initAdminPage(currentUsername) {
     var viewHomeLi = document.getElementById('viewHomeLi');
     if (viewHomeLi) viewHomeLi.style.display = isSuper ? 'block' : 'none';
 
-    // 普通管理员隐藏系统设置 / 操作日志导航项（仅保留数据统计、用户管理、内容、文件、消息等部分功能）
+    // 普通管理员隐藏系统设置 / 操作日志 / 登录设置导航项（仅保留数据统计、用户管理、内容、文件、消息等部分功能）
     if (!isSuper) {
         var settingsNav = document.querySelector('.sidebar-nav a[data-tab="settings"]');
         if (settingsNav) settingsNav.parentElement.style.display = 'none';
         var logsNav = document.querySelector('.sidebar-nav a[data-tab="logs"]');
         if (logsNav) logsNav.parentElement.style.display = 'none';
+        var loginSettingsNav = document.querySelector('.sidebar-nav a[data-tab="loginSettings"]');
+        if (loginSettingsNav) loginSettingsNav.parentElement.style.display = 'none';
     }
 
     // 标签页切换
@@ -3821,6 +3870,7 @@ function initAdminPage(currentUsername) {
     renderFilesTable();
     renderMessagesTable();
     loadSettings();
+    loadLoginSettings();
     renderLogs();
 
     // 搜索/筛选事件
@@ -3871,6 +3921,15 @@ function initAdminPage(currentUsername) {
         settingsForm.addEventListener('submit', function(e) {
             e.preventDefault();
             saveSettings();
+        });
+    }
+
+    // 登录设置表单提交
+    var loginSettingsForm = document.getElementById('loginSettingsForm');
+    if (loginSettingsForm) {
+        loginSettingsForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            saveLoginSettings();
         });
     }
 
@@ -3930,7 +3989,7 @@ function switchTab(tabName) {
     }
 
     // 更新标题
-    var titles = { dashboard: '数据统计', users: '用户管理', content: '内容管理', announcements: '公告管理', feedback: '反馈管理', files: '文件管理', messages: '消息通知', settings: '系统设置', logs: '操作日志', albums: '相册管理', polls: '投票管理', guestbook: '留言管理', points: '积分管理' };
+    var titles = { dashboard: '数据统计', users: '用户管理', content: '内容管理', announcements: '公告管理', feedback: '反馈管理', files: '文件管理', messages: '消息通知', settings: '系统设置', loginSettings: '登录设置', logs: '操作日志', albums: '相册管理', polls: '投票管理', guestbook: '留言管理', points: '积分管理' };
     document.getElementById('pageTitle').textContent = titles[tabName] || '';
 
     // 手机端工具栏标题同步
@@ -4193,6 +4252,7 @@ window.deleteSelectedUsers = function () {
     var remain = users.filter(function (u) {
         if (names.indexOf(u.username) !== -1) {
             if (u.username === session.username) return true; // 不能删除自己
+            if (u.username === 'admin') return true; // 内置超级管理员永不删除
             if (u.role === 'super_admin') return true; // 不能删除超级管理员
             return false;
         }
@@ -4592,6 +4652,11 @@ window.deleteUser = function (username) {
         if (users[i].username === username) { target = users[i]; break; }
     }
     if (!target) return;
+    // 内置超级管理员 admin 不可删除（防误删导致系统锁死）
+    if (target.username === 'admin') {
+        alert('内置超级管理员 admin 账号不可删除！');
+        return;
+    }
     // 不能删除当前登录账号
     if (session && session.username === username) {
         alert('不能删除当前登录的账号！');
@@ -4647,6 +4712,115 @@ function saveSettings() {
     alert('设置已保存！');
 }
 
+// ========== 登录设置（统一管理登录方式/密码规则/注册/验证码开关） ==========
+// 读取登录设置配置（含默认值），配置存于 siteSettings.loginSettings
+function getLoginSettings() {
+    var settings = JSON.parse(dataStore.get('siteSettings') || '{}');
+    var cfg = settings.loginSettings || {};
+    return {
+        passwordLogin: cfg.passwordLogin !== false,      // 密码登录开关
+        codeLogin: cfg.codeLogin !== false,              // 验证码登录开关
+        minPasswordLength: parseInt(cfg.minPasswordLength, 10) > 0 ? parseInt(cfg.minPasswordLength, 10) : 6, // 密码最小长度
+        registerEnabled: cfg.registerEnabled !== false,  // 注册开关
+        captchaEnabled: cfg.captchaEnabled !== false     // 验证码功能开关
+    };
+}
+
+function loadLoginSettings() {
+    var cfg = getLoginSettings();
+    var el;
+    el = document.getElementById('allowPasswordLogin');
+    if (el) el.checked = cfg.passwordLogin;
+    el = document.getElementById('allowCodeLogin');
+    if (el) el.checked = cfg.codeLogin;
+    el = document.getElementById('minPasswordLength');
+    if (el) el.value = cfg.minPasswordLength;
+    el = document.getElementById('allowRegister');
+    if (el) el.checked = cfg.registerEnabled;
+    el = document.getElementById('enableCaptcha');
+    if (el) el.checked = cfg.captchaEnabled;
+}
+
+function saveLoginSettings() {
+    var el = document.getElementById('allowPasswordLogin');
+    var passwordLogin = el ? el.checked : true;
+    el = document.getElementById('allowCodeLogin');
+    var codeLogin = el ? el.checked : true;
+    el = document.getElementById('minPasswordLength');
+    var minPasswordLength = parseInt(el ? el.value : '6', 10);
+    if (isNaN(minPasswordLength) || minPasswordLength < 6) minPasswordLength = 6;
+    if (minPasswordLength > 20) minPasswordLength = 20;
+    el = document.getElementById('allowRegister');
+    var registerEnabled = el ? el.checked : true;
+    el = document.getElementById('enableCaptcha');
+    var captchaEnabled = el ? el.checked : true;
+
+    var settings = JSON.parse(dataStore.get('siteSettings') || '{}');
+    settings.loginSettings = {
+        passwordLogin: passwordLogin,
+        codeLogin: codeLogin,
+        minPasswordLength: minPasswordLength,
+        registerEnabled: registerEnabled,
+        captchaEnabled: captchaEnabled
+    };
+    dataStore.set('siteSettings', JSON.stringify(settings));
+    applySiteSettings();
+    addLog('update_settings', '更新登录设置（登录方式/密码规则/注册/验证码）');
+    alert('登录设置已保存！');
+}
+
+// 将登录设置应用到前台登录页/注册页（按开关显隐登录方式、字段、注册入口）
+function applyAuthSettings() {
+    var cfg = getLoginSettings();
+    // ---- 登录页：登录方式切换按钮显隐 ----
+    var loginModeSwitch = document.getElementById('loginModeSwitch');
+    if (loginModeSwitch) {
+        var btns = loginModeSwitch.querySelectorAll('.mode-btn');
+        var visibleCount = 0;
+        for (var i = 0; i < btns.length; i++) {
+            var mode = btns[i].getAttribute('data-mode');
+            var allowed = (mode === 'password') ? cfg.passwordLogin : ((mode === 'code') ? cfg.codeLogin : true);
+            btns[i].style.display = allowed ? '' : 'none';
+            if (allowed) visibleCount++;
+        }
+        // 只剩一种或零种登录方式时隐藏整个切换器
+        loginModeSwitch.style.display = visibleCount > 1 ? '' : 'none';
+    }
+    // ---- 登录页：验证码功能开关 ----
+    var sendCodeBtn = document.getElementById('sendCodeBtn');
+    if (sendCodeBtn) {
+        sendCodeBtn.disabled = !cfg.captchaEnabled;
+    }
+    // ---- 登录页：注册入口显隐 ----
+    var regLinks = document.querySelectorAll('.auth-link a[href="register.html"]');
+    for (var j = 0; j < regLinks.length; j++) {
+        regLinks[j].style.display = cfg.registerEnabled ? '' : 'none';
+    }
+    // ---- 注册页：注册按钮禁用/启用 ----
+    var regForm = document.getElementById('registerForm');
+    if (regForm) {
+        var submitBtn = regForm.querySelector('button[type="submit"]');
+        if (submitBtn) {
+            submitBtn.disabled = !cfg.registerEnabled;
+            submitBtn.title = cfg.registerEnabled ? '' : '注册已关闭';
+        }
+        var tipEl = document.getElementById('registerClosedTip');
+        if (cfg.registerEnabled) {
+            if (tipEl) tipEl.style.display = 'none';
+        } else {
+            if (!tipEl) {
+                tipEl = document.createElement('p');
+                tipEl.id = 'registerClosedTip';
+                tipEl.className = 'error-msg';
+                tipEl.style.marginTop = '10px';
+                regForm.appendChild(tipEl);
+            }
+            tipEl.textContent = '系统暂未开放注册';
+            tipEl.style.display = 'block';
+        }
+    }
+}
+
 // 将站点配置应用到前台各页面（站点名称/描述/公告/主题）
 function applySiteSettings() {
     var settings = JSON.parse(dataStore.get('siteSettings') || '{}');
@@ -4694,6 +4868,8 @@ function applySiteSettings() {
         var mailLinks = document.querySelectorAll('a[href^="mailto:"]');
         for (var mi = 0; mi < mailLinks.length; mi++) mailLinks[mi].setAttribute('href', 'mailto:' + settings.supportEmail);
     }
+    // 登录设置：同步应用到前台登录页/注册页
+    if (typeof applyAuthSettings === 'function') applyAuthSettings();
 }
 
 // ========== 内容管理 ==========

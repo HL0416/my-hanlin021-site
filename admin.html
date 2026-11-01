@@ -64,6 +64,7 @@
             </ul>
             <div class="drawer-section-title">系统</div>
             <ul class="drawer-nav">
+                <li><a href="#" class="drawer-link" data-tab="loginSettings"><span class="drawer-icon">🔐</span>登录设置</a></li>
                 <li><a href="#" class="drawer-link" data-tab="settings"><span class="drawer-icon">⚙️</span>系统设置</a></li>
                 <li><a href="#" class="drawer-link" data-tab="logs"><span class="drawer-icon">🧾</span>操作日志</a></li>
                 <li><a href="#" class="drawer-link" data-tab="settings"><span class="drawer-icon">💾</span>备份恢复</a></li>
@@ -520,6 +521,54 @@
                         <tbody id="messagesTableBody"></tbody>
                     </table>
                 </div>
+            </section>
+
+            <!-- 登录设置 -->
+            <section id="tab-loginSettings" class="tab-panel">
+                <form id="loginSettingsForm">
+                    <div class="settings-section">
+                        <h3>登录方式</h3>
+                        <div class="form-group checkbox-group">
+                            <label>
+                                <input type="checkbox" id="allowPasswordLogin"> 允许密码登录
+                            </label>
+                            <span class="page-tip">关闭后，前台登录页不再显示密码登录方式。</span>
+                        </div>
+                        <div class="form-group checkbox-group">
+                            <label>
+                                <input type="checkbox" id="allowCodeLogin"> 允许验证码登录
+                            </label>
+                            <span class="page-tip">关闭后，前台登录页不再显示验证码登录方式。</span>
+                        </div>
+                    </div>
+                    <div class="settings-section">
+                        <h3>密码规则</h3>
+                        <div class="form-group">
+                            <label for="minPasswordLength">密码最小长度</label>
+                            <input type="number" id="minPasswordLength" min="6" max="20" value="6">
+                            <span class="page-tip">前台注册与修改密码时按此规则校验，需同时包含字母和数字。</span>
+                        </div>
+                    </div>
+                    <div class="settings-section">
+                        <h3>注册设置</h3>
+                        <div class="form-group checkbox-group">
+                            <label>
+                                <input type="checkbox" id="allowRegister"> 允许新账号注册
+                            </label>
+                            <span class="page-tip">关闭后，前台注册页注册按钮禁用，登录页"立即注册"入口隐藏。</span>
+                        </div>
+                    </div>
+                    <div class="settings-section">
+                        <h3>验证码设置</h3>
+                        <div class="form-group checkbox-group">
+                            <label>
+                                <input type="checkbox" id="enableCaptcha"> 启用验证码功能
+                            </label>
+                            <span class="page-tip">关闭后，验证码登录方式下"获取验证码"按钮禁用。</span>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">保存登录设置</button>
+                </form>
             </section>
 
             <!-- 系统设置 -->

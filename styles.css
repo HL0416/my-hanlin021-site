@@ -191,6 +191,27 @@ textarea:focus {
     text-decoration: none;
 }
 
+/* 登录/注册等认证页顶部「返回首页」入口 */
+.auth-back-row {
+    text-align: center;
+    margin-bottom: 16px;
+}
+
+.auth-back-row .back-home-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    background: transparent;
+    border: 1px solid #667eea;
+    color: #667eea;
+}
+
+.auth-back-row .back-home-btn:hover {
+    background: rgba(102, 126, 234, 0.08);
+    opacity: 1;
+}
+
 .error-msg {
     color: #e74c3c;
     font-size: 13px;
