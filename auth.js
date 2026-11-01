@@ -53,22 +53,30 @@
                 .catch(function () { /* 云端不可用时静默回退本地 */ });
         }
 
-        // 云端写串行队列：避免并发 set 乱序覆盖；失败重试 1 次
+        // 云端写串行队列：避免并发 set 乱序覆盖；单次写校验 res.ok，失败重试 1 次；
+        // 最终失败 resolve({ok:false}) 不抛出未处理拒绝，调用方可用返回值判断云端是否落盘
         var writeQueue = Promise.resolve();
+        function pushCloudOnce(key, value) {
+            return fetch(CLOUD_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ key: key, value: value })
+            }).then(function (r) {
+                return r.json().then(function (res) {
+                    if (!res || res.ok !== true) { throw new Error('cloud write rejected: ' + key); }
+                    return res;
+                });
+            });
+        }
         function pushCloud(key, value) {
-            if (typeof fetch !== 'function') { return Promise.resolve(); }
+            if (typeof fetch !== 'function') { return Promise.resolve({ ok: true, local: true }); }
             writeQueue = writeQueue.then(function () {
-                return fetch(CLOUD_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ key: key, value: value })
-                }).then(function (r) { return r.json(); }).catch(function () {
+                return pushCloudOnce(key, value).catch(function () {
                     // 首次失败重试一次（后台写后刷新仍需一致）
-                    return fetch(CLOUD_URL, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ key: key, value: value })
-                    }).then(function (r) { return r.json(); }).catch(function () { /* 最终失败静默，本地已生效 */ });
+                    return pushCloudOnce(key, value);
+                }).catch(function () {
+                    // 最终失败静默，本地已生效；返回 ok:false 供调用方判断
+                    return { ok: false, key: key };
                 });
             });
             return writeQueue;
@@ -98,7 +106,13 @@
                 if (!Object.prototype.hasOwnProperty.call(map, u.username)) { order.push(u.username); }
                 map[u.username] = u;
             }
-            for (var i = 0; i < cloudArr.length; i++) put(cloudArr[i]);
+            // 云端残留的被删用户（删除操作未同步到云端）不入表，防止墓碑防复活失效；标记后回写云端清除残留
+            var tombResidue = false;
+            for (var i = 0; i < cloudArr.length; i++) {
+                var cu = cloudArr[i];
+                if (cu && cu.username && deleted.indexOf(cu.username) !== -1) { tombResidue = true; continue; }
+                put(cu);
+            }
             var localOnly = [];
             for (var j = 0; j < localArr.length; j++) {
                 var lu = localArr[j];
@@ -117,7 +131,7 @@
             var merged = [];
             for (var k = 0; k < order.length; k++) merged.push(map[order[k]]);
             writeLocal('users', JSON.stringify(merged));
-            var dirty = localOnly.length > 0 || newDeleted.length !== deleted.length;
+            var dirty = localOnly.length > 0 || newDeleted.length !== deleted.length || tombResidue;
             if (dirty) {
                 pushCloud('users', merged);
                 saveDeletedUsers(newDeleted);
@@ -166,8 +180,10 @@
 
         return {
             get: function (key) {
-                if (!cloudSynced[key]) { pullKey(key); }
-                return readLocal(key);
+                try {
+                    if (!cloudSynced[key]) { pullKey(key); }
+                    return readLocal(key);
+                } catch (e) { return null; }
             },
             set: function (key, value) {
                 writeLocal(key, value);
@@ -869,29 +885,83 @@
         if (adminLink) adminLink.style.display = isAdmin ? 'block' : 'none';
     }
 
+    // 导航登录态同步：未登录显示登录/注册，隐藏退出/个人中心/管理后台入口
+    function syncNavAuth() {
+        var s = getSession();
+        var logged = !!(s && s.username);
+        var showMap = {
+            'loginBtn': logged ? 'none' : 'inline-block',
+            'registerBtn': logged ? 'none' : 'inline-block',
+            'drawerLoginBtn': logged ? 'none' : 'block',
+            'drawerRegisterBtn': logged ? 'none' : 'block',
+            'profileLink': logged ? 'inline-block' : 'none',
+            'drawerProfileLink': logged ? 'block' : 'none',
+            'drawerProfileLinkNav': logged ? 'block' : 'none',
+            'bottomProfileLink': logged ? 'inline-block' : 'none',
+            'logoutBtn': logged ? 'inline-block' : 'none',
+            'drawerLogoutBtn': logged ? 'block' : 'none'
+        };
+        for (var id in showMap) {
+            if (!Object.prototype.hasOwnProperty.call(showMap, id)) continue;
+            var el = document.getElementById(id);
+            if (el) el.style.display = showMap[id];
+        }
+        // 管理后台入口：仅管理员可见（登录后按角色判定）
+        var adminLinkEl = document.getElementById('adminLink');
+        if (adminLinkEl) adminLinkEl.style.display = 'none';
+        var drawerAdminLinkEl = document.getElementById('drawerAdminLink');
+        if (drawerAdminLinkEl) drawerAdminLinkEl.style.display = 'none';
+        if (logged) {
+            var full = findUserByUsername(getUsers(), s.username);
+            var isAdmin = full && (full.role === 'super_admin' || full.role === 'admin');
+            if (adminLinkEl) adminLinkEl.style.display = isAdmin ? 'block' : 'none';
+            if (drawerAdminLinkEl) drawerAdminLinkEl.style.display = isAdmin ? 'flex' : 'none';
+        }
+    }
+    window.syncNavAuth = syncNavAuth;
+
     if (welcomeEl && logoutBtn) {
         var session = getSession();
-        if (!session) {
-            window.location.href = 'login.html';
-        } else {
-            var fullUser = findUserByUsername(getUsers(), session.username);
+        var fullUser = null;
+        if (session) {
+            fullUser = findUserByUsername(getUsers(), session.username);
             renderWelcomeBanner(session, fullUser);
             logoutBtn.addEventListener('click', function () {
                 clearSession();
                 window.location.href = 'login.html';
             });
-            initHomePage(session, fullUser);
+        } else {
+            // 游客模式：不强制跳转登录，直接展示公开内容
+            welcomeEl.textContent = '欢迎来到我的站点！';
+            var dateElG = document.getElementById('welcomeDate');
+            if (dateElG) dateElG.textContent = '今天是 ' + todayStr();
+            var avatarElG = document.getElementById('welcomeAvatar');
+            if (avatarElG) avatarElG.innerHTML = '<span class="welcome-avatar-text">客</span>';
+            var accountElG = document.getElementById('welcomeAccount');
+            if (accountElG) accountElG.textContent = '登录后解锁个人中心';
+            var visitInfoElG = document.getElementById('visitInfo');
+            if (visitInfoElG) visitInfoElG.textContent = '';
+            var adminLinkElG = document.getElementById('adminLink');
+            if (adminLinkElG) adminLinkElG.style.display = 'none';
+            var drawerAdminLinkElG = document.getElementById('drawerAdminLink');
+            if (drawerAdminLinkElG) drawerAdminLinkElG.style.display = 'none';
         }
+        syncNavAuth();
+        initHomePage(session, fullUser);
     }
 
     function initHomePage(session, fullUser) {
         applySiteSettings();
         initCarousel();
         renderAnnouncements();
-        renderContentCards(session.username);
+        renderContentCards(session ? session.username : '');
         renderFeedbacks();
-        recordVisit();
+        if (session) recordVisit();
         renderGuestbook();
+        renderMomentFeed();
+        renderDailyWord('dailyWordHome');
+        renderPollList();
+        renderPublicAlbums();
         initBackTop();
 
         // 全局搜索
@@ -914,6 +984,7 @@
         var feedbackSubmit = document.getElementById('feedbackSubmit');
 
         function openFeedback() {
+            if (!session) { showToast('请先登录后再提交反馈', 'warning'); return; }
             if (!feedbackModal) return;
             feedbackModal.style.display = 'flex';
             feedbackModal.classList.add('modal-in');
@@ -931,6 +1002,7 @@
 
         if (feedbackSubmit) {
             feedbackSubmit.addEventListener('click', function () {
+                if (!session) { showToast('请先登录后再提交反馈', 'warning'); return; }
                 var title = document.getElementById('feedbackTitle').value.trim();
                 var body = document.getElementById('feedbackBody').value.trim();
                 if (!title || !body) { alert('标题和内容都不能为空'); return; }
@@ -952,6 +1024,21 @@
                 alert('反馈提交成功！');
             });
         }
+
+        // 登录守卫委托：未登录点击受限链接时统一提示，不再跳转登录页
+        document.addEventListener('click', function (e) {
+            var t = e.target;
+            while (t && t !== document) {
+                if (t.classList && t.classList.contains('login-guard')) {
+                    if (!session) {
+                        e.preventDefault();
+                        showToast('请先登录后使用该功能', 'warning');
+                    }
+                    return;
+                }
+                t = t.parentNode;
+            }
+        });
     }
 
     // 首页 Hero 轮播
@@ -1015,6 +1102,17 @@
         if (carousel) {
             carousel.addEventListener('mouseenter', stopAuto);
             carousel.addEventListener('mouseleave', startAuto);
+            // 移动端触摸滑动切换（左右轻扫切换上一张/下一张）
+            var touchX = 0;
+            carousel.addEventListener('touchstart', function (e) {
+                touchX = (e.touches && e.touches[0]) ? e.touches[0].clientX : 0;
+            });
+            carousel.addEventListener('touchend', function (e) {
+                var endX = (e.changedTouches && e.changedTouches[0]) ? e.changedTouches[0].clientX : touchX;
+                var dx = endX - touchX;
+                if (dx < -40) { stopAuto(); next(); startAuto(); }
+                else if (dx > 40) { stopAuto(); prev(); startAuto(); }
+            });
         }
         startAuto();
     }
@@ -1187,7 +1285,6 @@
         var session = getSession();
         if (!session || !session.username) {
             showToast('请先登录后再留言', 'warning');
-            setTimeout(function () { location.href = 'login.html'; }, 800);
             return;
         }
         var input = document.getElementById('guestbookInput');
@@ -1472,7 +1569,7 @@
     }
     function toggleContentLike(contentId) {
         var session = getSession();
-        if (!session) { window.location.href = 'login.html'; return; }
+        if (!session) { showToast('请先登录后再点赞', 'warning'); return; }
         var map = getInteractions();
         if (!map.likes) map.likes = {};
         if (!map.likers) map.likers = {};
@@ -1500,7 +1597,7 @@
     }
     function toggleContentFavorite(contentId) {
         var session = getSession();
-        if (!session) { window.location.href = 'login.html'; return; }
+        if (!session) { showToast('请先登录后再收藏', 'warning'); return; }
         contentId = Number(contentId);
         var list = getFavorites(session.username);
         var idx = list.indexOf(contentId);
@@ -1516,7 +1613,7 @@
     }
     function addContentComment(contentId, text) {
         var session = getSession();
-        if (!session) { window.location.href = 'login.html'; return; }
+        if (!session) { showToast('请先登录后再评论', 'warning'); return; }
         var map = getInteractions();
         if (!map.comments) map.comments = {};
         if (!map.comments[contentId]) map.comments[contentId] = [];
@@ -4117,6 +4214,44 @@ window.deleteSelectedUsers = function () {
 };
 
 // ========== 一键删除所有用户数据（仅保留超级管理员 admin） ==========
+// 删除前备份：将被删用户的资料与其全部关联数据打包为 JSON 下载，供误删后恢复参考
+window.backupWipeData = function (names) {
+    var USER_KEY_PREFIXES = ['sitePointFlow_', 'siteInventory_', 'siteGrowth_', 'userActivity_',
+        'userDevices_', 'userFavorites_', 'siteDiary_', 'siteNotes_', 'siteReadLater_',
+        'siteFollows_', 'siteSigninDates_', 'siteAchievements_', 'siteHistory_', 'taskCenter_'];
+    var wrap = {
+        backupAt: new Date().toLocaleString('zh-CN'),
+        backupType: 'wipe-users-before-delete',
+        deletedUsers: [],
+        perUser: {}
+    };
+    var users = getUsers();
+    for (var i = 0; i < users.length; i++) {
+        var u = users[i];
+        if (!u || !u.username || names.indexOf(u.username) === -1) continue;
+        wrap.deletedUsers.push(u);
+        var related = {};
+        for (var p = 0; p < USER_KEY_PREFIXES.length; p++) {
+            var raw = dataStore.get(USER_KEY_PREFIXES[p] + u.username);
+            if (!raw) continue;
+            try { related[USER_KEY_PREFIXES[p]] = JSON.parse(raw); } catch (e) { related[USER_KEY_PREFIXES[p]] = raw; }
+        }
+        wrap.perUser[u.username] = related;
+    }
+    var blob = new Blob([JSON.stringify(wrap, null, 2)], { type: 'application/json' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    var now = new Date();
+    var fname = 'wipe_backup_' + now.getFullYear() + ('0' + (now.getMonth() + 1)).slice(-2) +
+        ('0' + now.getDate()).slice(-2) + '_' + ('0' + now.getHours()).slice(-2) +
+        ('0' + now.getMinutes()).slice(-2) + ('0' + now.getSeconds()).slice(-2) + '.json';
+    a.download = fname;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); document.body.removeChild(a); }, 1000);
+    return fname;
+};
+
 window.adminWipeAllUsers = function () {
     var session = getSession();
     if (!session || session.role !== 'super_admin') {
@@ -4142,7 +4277,10 @@ window.adminWipeAllUsers = function () {
     }
     var names = [];
     for (var d = 0; d < del.length; d++) names.push(del[d].username);
-    if (!confirm('确定一键删除所有普通用户数据？\n\n即将删除 ' + names.length + ' 个用户及其全部关联云端数据（积分明细、库存、成长记录、动态、任务、收藏等）：\n' + names.join('、') + '\n\n仅保留超级管理员 admin，此操作不可恢复！')) return;
+    if (!confirm('确定一键删除所有普通用户数据？\n\n即将删除 ' + names.length + ' 个用户及其全部关联云端数据（积分明细、库存、成长记录、动态、任务、收藏等）：\n' + names.join('、') + '\n\n仅保留超级管理员 admin。\n确认后将先自动下载一份「被删用户数据备份」再执行删除，此操作不可恢复！')) return;
+
+    // 删除前自动备份：打包被删用户资料与关联数据并下载，供误删后恢复参考
+    var backupFile = window.backupWipeData(names);
 
     var CLOUD_URL = '/.netlify/functions/data';
     var USER_KEY_PREFIXES = ['sitePointFlow_', 'siteInventory_', 'siteGrowth_', 'userActivity_',
@@ -4177,7 +4315,7 @@ window.adminWipeAllUsers = function () {
                 saveUsers(keep)
             ]).then(function (res) {
                 if (!res[0] || !res[0].ok) throw new Error('siteDeletedUsers cloud write fail');
-                addLog('wipe_users', '一键删除所有普通用户数据，删除 ' + names.length + ' 人：' + names.join('、'));
+                addLog('wipe_users', '一键删除所有普通用户数据（删除前备份文件：' + backupFile + '），删除 ' + names.length + ' 人：' + names.join('、'));
                 renderUsersTable();
                 if (btn) { btn.disabled = false; btn.textContent = '一键删除所有用户数据'; }
                 showToast('已删除 ' + names.length + ' 个普通用户及其云端数据，仅保留超级管理员', 'success');
@@ -5385,13 +5523,13 @@ window.renderTaskCenter = function () {
         var t = data.tasks[def.id];
         var stateCls = '', btnHtml = '', stateText = '';
         if (t.claimed) { stateCls = 'task-done'; btnHtml = '<span class="task-claimed">已领取</span>'; }
-        else if (t.done) { stateCls = 'task-ready'; btnHtml = '<button class="btn btn-primary btn-xs" onclick="window.claimTask(\'' + def.id + '\')">领取 +' + def.pts + '</button>'; }
+        else if (t.done) { stateCls = 'task-ready'; stateText = '今日已完成，点击领取积分'; btnHtml = '<button class="btn btn-primary btn-xs" onclick="window.claimTask(\'' + def.id + '\')">领取 +' + def.pts + '</button>'; }
         else { stateCls = 'task-todo'; btnHtml = '<span class="task-todo-tip">未完成</span>'; }
         html += '<div class="task-card ' + stateCls + '"><div class="task-icon">' + def.icon + '</div>' +
             '<div class="task-info"><div class="task-name">' + escHtml(def.name) + '</div>' +
             '<div class="task-desc">' + escHtml(def.desc) + '</div></div>' +
             '<div class="task-reward">+' + def.pts + ' 积分</div>' +
-            '<div class="task-state">' + btnHtml + '</div></div>';
+            '<div class="task-state">' + (stateText ? '<div class="task-state-tip" style="font-size:12px;color:#8a94b0;margin-bottom:4px;">' + stateText + '</div>' : '') + btnHtml + '</div></div>';
     }
     html += '</div>';
 
@@ -5403,7 +5541,8 @@ window.renderTaskCenter = function () {
         html += '<table class="point-log-table"><thead><tr><th>时间</th><th>来源</th><th>积分</th></tr></thead><tbody>';
         for (var l = 0; l < Math.min(logs.length, 30); l++) {
             var lg = logs[l];
-            html += '<tr><td>' + escHtml(lg.time) + '</td><td>' + escHtml(lg.action) + '</td><td style="color:#38a169;">+' + lg.pts + '</td></tr>';
+            var lgPts = Number(lg.pts) || 0;
+            html += '<tr><td>' + escHtml(lg.time) + '</td><td>' + escHtml(lg.action) + '</td><td style="color:' + (lgPts >= 0 ? '#38a169' : '#e53e3e') + ';">' + (lgPts >= 0 ? '+' : '') + lgPts + '</td></tr>';
         }
         html += '</tbody></table>';
     }
@@ -5497,6 +5636,9 @@ window.renderPointLogPanel = function (username) {
     var html = '<div class="task-section-title">积分明细</div>';
     if (!logs.length) html += '<p class="empty-tip">暂无积分流水，快去赚积分吧</p>';
     else {
+        var sumPos = 0, sumNeg = 0;
+        for (var li = 0; li < logs.length; li++) { var lv = Number(logs[li].delta) || 0; if (lv > 0) sumPos += lv; else sumNeg += lv; }
+        html += '<p style="font-size:12px;color:#8a94b0;margin:6px 0 10px;">累计收入 <b style="color:#38a169;">+' + sumPos + '</b> ｜ 支出 <b style="color:#e53e3e;">' + sumNeg + '</b> ｜ 当前结余 <b>' + (sumPos + sumNeg) + '</b></p>';
         html += '<table class="point-log-table"><thead><tr><th>时间</th><th>原因</th><th>积分</th></tr></thead><tbody>';
         for (var i = 0; i < Math.min(logs.length, 100); i++) {
             var lg = logs[i];
@@ -5533,19 +5675,28 @@ window.renderPointsRank = function (scope) {
         '<button class="btn btn-xs ' + (!scope || scope === 'total' ? 'btn-primary' : 'btn-secondary') + '" onclick="window.renderPointsRank(\'total\')">总榜</button> ' +
         '<button class="btn btn-xs ' + (scope === 'week' ? 'btn-primary' : 'btn-secondary') + '" onclick="window.renderPointsRank(\'week\')">周榜</button> ' +
         '<button class="btn btn-xs ' + (scope === 'month' ? 'btn-primary' : 'btn-secondary') + '" onclick="window.renderPointsRank(\'month\')">月榜</button></div>';
+    // 并列名次：同分同名次
+    var topN = Math.min(rows.length, 50);
+    var rankNo = [];
+    var lastPts = null, lastRank = 0;
+    for (var r = 0; r < topN; r++) {
+        if (rows[r].pts !== lastPts) { lastRank = r + 1; lastPts = rows[r].pts; }
+        rankNo.push(lastRank);
+    }
     html += '<ol class="rank-list">';
-    for (var r = 0; r < Math.min(rows.length, 50); r++) {
-        var rank = r + 1;
+    for (var r2 = 0; r2 < topN; r2++) {
+        var rank = rankNo[r2];
         var medal = rank === 1 ? '🥇' : (rank === 2 ? '🥈' : (rank === 3 ? '🥉' : rank));
-        html += '<li class="rank-item' + (rows[r].username === meName ? ' mine' : '') + '"><span class="rank-no">' + medal + '</span>' +
-            '<span class="rank-name">' + escHtml(rows[r].name) + '</span><span class="rank-value">' + rows[r].pts + ' 分</span></li>';
+        html += '<li class="rank-item' + (rows[r2].username === meName ? ' mine' : '') + '"><span class="rank-no">' + medal + '</span>' +
+            '<span class="rank-name">' + escHtml(rows[r2].name) + '</span><span class="rank-value">' + rows[r2].pts + ' 分</span></li>';
     }
     html += '</ol>';
     var meIdx = -1;
-    for (var mi = 0; mi < rows.length; mi++) { if (rows[mi].username === meName) { meIdx = mi + 1; break; } }
-    html += '<div class="my-rank">我的排名：';
+    var meRank = 0;
+    for (var mi = 0; mi < rows.length; mi++) { if (rows[mi].username === meName) { meIdx = mi; meRank = mi < topN ? rankNo[mi] : -1; break; } }
+    html += '<div class="my-rank">' + (topN ? '上榜 ' + topN + ' 人 ｜ ' : '') + '我的排名：';
     if (meIdx === -1) html += '未上榜（暂无积分记录）';
-    else html += '第 <b>' + meIdx + '</b> 名（' + rows[meIdx - 1].pts + ' 分）' + (meIdx <= 3 ? ' 🏆' : '');
+    else html += '第 <b>' + (meRank > 0 ? meRank : meIdx + 1) + '</b> 名（' + rows[meIdx].pts + ' 分）' + (meRank > 0 && meRank <= 3 ? ' 🏆' : '');
     html += '</div>';
     var target = document.getElementById('pointsRankList');
     if (target) { target.innerHTML = html; target.setAttribute('data-scope', scope || 'total'); }
@@ -6074,10 +6225,9 @@ function updateCardCounts(contentId) {
 
 window.openContentDetail = function (contentId) {
     var session = window.getSession();
-    if (!session || !session.username) { window.location.href = 'login.html'; return; }
     contentId = Number(contentId);
     window._detailContentId = contentId;
-    if (window.markTaskDone) window.markTaskDone('browse');
+    if (session && session.username && window.markTaskDone) window.markTaskDone('browse');
     var el = document.getElementById('contentDetailModal');
     if (!el) return;
     el.querySelector('.modal-body').innerHTML = '<p class="empty-tip">加载中...</p>';
@@ -6389,6 +6539,11 @@ window.renderPollsAdmin = function () {
         else { fn(); }
     }
     pageReady(function () {
+        // 弹窗关闭绑定与登录态无关：游客也能打开内容详情/投票弹窗，必须先绑定关闭，避免未登录时弹窗无法关闭
+        bindModalClosers('contentDetailModal');
+        bindModalClosers('pollDetailModal');
+        bindModalClosers('albumAdminModal');
+
         var session = window.getSession();
         if (!session || !session.username) return;
 
@@ -6439,10 +6594,7 @@ window.renderPollsAdmin = function () {
             if (card && window.openContentDetail) window.openContentDetail(card.getAttribute('data-content-id'));
         });
 
-        // 弹窗关闭按钮绑定
-        bindModalClosers('contentDetailModal');
-        bindModalClosers('pollDetailModal');
-        bindModalClosers('albumAdminModal');
+        // 弹窗关闭按钮绑定（已在上方统一绑定，登录与否均生效）
 
         // hash 路由：支持 profile.html#task / #albums / #polls 等直达标签页
         var hashTab = String(location.hash || '').replace('#', '');

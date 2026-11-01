@@ -273,10 +273,9 @@ textarea:focus {
 }
 
 /* ========== 管理后台 ========== */
+/* 旧版登录容器（#adminContainer）使用的 flex 居中已废弃，后台现为全站顶栏 + 侧栏 + 主内容
+   块级流式布局；此处仅保留背景色，避免 body 被 flex 垂直/水平居中造成布局隐患 */
 .admin-page {
-    display: flex;
-    align-items: center;
-    justify-content: center;
     background: #f5f7fa;
 }
 
@@ -2866,6 +2865,44 @@ body[data-theme="dark"] {
     font-weight: 600;
 }
 
+/* ========== 积分排行榜强化 / 任务中心 / 商城 / 后台积分管理 ========== */
+.rank-no {
+    flex: none;
+    min-width: 26px;
+    text-align: center;
+    font-weight: 700;
+    color: #718096;
+}
+.rank-item.mine {
+    background: #f0f4ff;
+    border-radius: 8px;
+    border-bottom-color: transparent;
+    box-shadow: inset 2px 0 0 #667eea;
+}
+.rank-switch {
+    display: flex;
+    gap: 6px;
+    margin: 4px 0 14px;
+}
+.my-rank {
+    margin-top: 14px;
+    padding: 10px 14px;
+    background: #f7f9fc;
+    border: 1px dashed #cbd5e0;
+    border-radius: 10px;
+    font-size: 13px;
+    color: #4a5568;
+}
+.my-rank b { color: #f59e0b; font-size: 16px; }
+.points-admin-toolbar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+.points-admin-hint { font-size: 12px; color: #8896b0; }
+
 /* ========== 留言板 ========== */
 .guestbook-box {
     background: #fff;
@@ -3228,6 +3265,7 @@ body[data-theme="dark"] {
 
 /* 头像框 */
 .avatar-frame-none { box-shadow: 0 0 0 3px #fff, 0 4px 14px rgba(0,0,0,0.2); }
+.avatar-frame-silver { box-shadow: 0 0 0 4px #cbd5e0, 0 0 16px 3px rgba(203,213,224,0.6), 0 4px 14px rgba(0,0,0,0.2); }
 .avatar-frame-gold { box-shadow: 0 0 0 4px #f6c453, 0 0 18px 4px rgba(246,196,83,0.55), 0 4px 14px rgba(0,0,0,0.2); }
 .avatar-frame-rainbow { box-shadow: 0 0 0 4px #ff6b6b, 0 0 0 8px #ffd93d, 0 0 0 12px #6bcb77, 0 4px 14px rgba(0,0,0,0.2); }
 .avatar-frame-star {

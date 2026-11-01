@@ -28,8 +28,10 @@
             <div id="adminLink" style="display:none;">
                 <a href="admin.html" class="btn btn-primary btn-sm">进入管理后台</a>
             </div>
-            <a href="profile.html" class="btn btn-primary btn-sm">个人信息</a>
-            <button id="logoutBtn" class="btn btn-danger btn-sm">退出登录</button>
+            <a id="loginBtn" href="login.html" class="btn btn-primary btn-sm" style="display:none;">登录</a>
+            <a id="registerBtn" href="register.html" class="btn btn-ghost btn-sm" style="display:none;">注册</a>
+            <a id="profileLink" href="profile.html" class="btn btn-primary btn-sm">个人信息</a>
+            <button id="logoutBtn" class="btn btn-danger btn-sm" style="display:none;">退出登录</button>
         </div>
     </nav>
 
@@ -46,7 +48,7 @@
                 <li><a href="#momentFeed" class="drawer-link"><span class="drawer-icon">📝</span>动态广场</a></li>
                 <li><a href="#dailyWordHome" class="drawer-link"><span class="drawer-icon">📔</span>日记心情</a></li>
                 <li><a href="#growth" class="drawer-link"><span class="drawer-icon">🌱</span>成长中心</a></li>
-                <li><a href="profile.html" class="drawer-link"><span class="drawer-icon">👤</span>我的</a></li>
+                <li><a href="profile.html" class="drawer-link login-guard" id="drawerProfileLinkNav"><span class="drawer-icon">👤</span>我的</a></li>
             </ul>
             <div class="drawer-section-title">功能</div>
             <ul class="drawer-nav">
@@ -56,9 +58,11 @@
                 </li>
                 <li><a href="#" class="drawer-link" id="drawerThemeBtn"><span class="drawer-icon">🌙</span>深色模式</a></li>
                 <li><a href="help.html" class="drawer-link"><span class="drawer-icon">❓</span>帮助中心</a></li>
+                <li><a href="login.html" class="drawer-link" id="drawerLoginBtn" style="display:none;"><span class="drawer-icon">🔑</span>登录</a></li>
+                <li><a href="register.html" class="drawer-link" id="drawerRegisterBtn" style="display:none;"><span class="drawer-icon">📝</span>注册</a></li>
                 <li><a href="admin.html" class="drawer-link" id="drawerAdminLink" style="display:none;"><span class="drawer-icon">⚙️</span>管理后台</a></li>
-                <li><a href="profile.html" class="drawer-link"><span class="drawer-icon">👤</span>个人信息</a></li>
-                <li><a href="#" class="drawer-link drawer-danger" id="drawerLogoutBtn"><span class="drawer-icon">↪</span>退出登录</a></li>
+                <li><a href="profile.html" class="drawer-link login-guard" id="drawerProfileLink"><span class="drawer-icon">👤</span>个人信息</a></li>
+                <li><a href="#" class="drawer-link drawer-danger" id="drawerLogoutBtn" style="display:none;"><span class="drawer-icon">↪</span>退出登录</a></li>
             </ul>
         </div>
     </div>
@@ -72,7 +76,7 @@
                     <div class="hero-inner">
                         <h2 id="heroWelcomeTitle">欢迎来到我的站点</h2>
                         <p class="hero-sub">一站式管理你的内容、消息与个人资料，安全又便捷</p>
-                        <a href="profile.html" class="btn btn-primary">完善个人资料</a>
+                        <a href="profile.html" class="btn btn-primary login-guard">完善个人资料</a>
                     </div>
                 </div>
                 <div class="hero-slide">
@@ -100,7 +104,7 @@
                     <div class="hero-inner">
                         <h2>消息 · 收藏 · 个人动态</h2>
                         <p class="hero-sub">消息通知中心、内容收藏夹、个人动态时间线，一站管理你的足迹</p>
-                        <a href="profile.html" class="btn btn-secondary">前往个人中心</a>
+                        <a href="profile.html" class="btn btn-secondary login-guard">前往个人中心</a>
                     </div>
                 </div>
             </div>
@@ -181,42 +185,42 @@
                 <h2>快捷功能</h2>
             </div>
             <div class="quick-actions">
-                <a href="profile.html" class="quick-card">
+                <a href="profile.html" class="quick-card login-guard">
                     <div class="quick-icon quick-icon-profile">资</div>
                     <div class="quick-title">个人资料</div>
                     <div class="quick-desc">完善你的个人资料信息</div>
                 </a>
-                <a href="profile.html#task" class="quick-card">
+                <a href="profile.html#task" class="quick-card login-guard">
                     <div class="quick-icon quick-icon-task">任</div>
                     <div class="quick-title">任务中心</div>
                     <div class="quick-desc">每日任务领积分，商城兑换装扮</div>
                 </a>
-                <a href="profile.html#albums" class="quick-card">
+                <a href="profile.html#albums" class="quick-card login-guard">
                     <div class="quick-icon quick-icon-album">相</div>
                     <div class="quick-title">我的相册</div>
                     <div class="quick-desc">上传照片，打造个人画廊</div>
                 </a>
-                <a href="profile.html#polls" class="quick-card">
+                <a href="profile.html#polls" class="quick-card login-guard">
                     <div class="quick-icon quick-icon-poll">投</div>
                     <div class="quick-title">投票问卷</div>
                     <div class="quick-desc">发起投票，参与热点讨论</div>
                 </a>
-                <a href="profile.html#friends" class="quick-card">
+                <a href="profile.html#friends" class="quick-card login-guard">
                     <div class="quick-icon quick-icon-friend">友</div>
                     <div class="quick-title">好友私信</div>
                     <div class="quick-desc">好友申请与站内私信</div>
                 </a>
-                <a href="profile.html#diary" class="quick-card">
+                <a href="profile.html#diary" class="quick-card login-guard">
                     <div class="quick-icon quick-icon-diary">记</div>
                     <div class="quick-title">日记心情</div>
                     <div class="quick-desc">每日一言与心情日记</div>
                 </a>
-                <a href="profile.html#growth" class="quick-card">
+                <a href="profile.html#growth" class="quick-card login-guard">
                     <div class="quick-icon quick-icon-growth">成</div>
                     <div class="quick-title">成长中心</div>
                     <div class="quick-desc">签到日历与成就徽章</div>
                 </a>
-                <a href="profile.html#social" class="quick-card">
+                <a href="profile.html#social" class="quick-card login-guard">
                     <div class="quick-icon quick-icon-moment">动</div>
                     <div class="quick-title">我的动态</div>
                     <div class="quick-desc">发布动态与关注管理</div>
@@ -327,7 +331,7 @@
             <span class="bottom-nav-icon">🌱</span>
             <span class="bottom-nav-label">成长</span>
         </a>
-        <a href="profile.html" class="bottom-nav-item">
+        <a href="profile.html" class="bottom-nav-item login-guard" id="bottomProfileLink">
             <span class="bottom-nav-icon">👤</span>
             <span class="bottom-nav-label">我的</span>
         </a>
@@ -335,7 +339,7 @@
 
     <!-- 悬浮快捷入口（手机/平板）：签到 / 发布动态 / 管理后台 -->
     <div class="fab-group" id="fabGroup">
-        <a href="profile.html#growth" class="fab-item fab-signin" title="每日签到">
+        <a href="profile.html#growth" class="fab-item fab-signin login-guard" title="每日签到">
             <span class="fab-icon">📅</span><span class="fab-label">签到</span>
         </a>
         <a href="#" class="fab-item fab-publish" id="fabPublishBtn" title="发布动态">
@@ -358,7 +362,7 @@
                 <h4>快速链接</h4>
                 <ul>
                     <li><a href="index.html">首页</a></li>
-                    <li><a href="profile.html">个人信息</a></li>
+                    <li><a href="profile.html" class="login-guard">个人信息</a></li>
                     <li><a href="help.html">帮助中心</a></li>
                 </ul>
             </div>

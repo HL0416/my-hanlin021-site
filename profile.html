@@ -104,6 +104,8 @@
                 <div class="tab-submenu">
                     <button class="tab-btn" data-tab="growth">成长中心</button>
                     <button class="tab-btn" data-tab="task">任务中心</button>
+                    <button class="tab-btn" data-tab="shop">积分商城</button>
+                    <button class="tab-btn" data-tab="points">排行榜</button>
                     <button class="tab-btn" data-tab="polls">投票问卷</button>
                 </div>
             </div>
@@ -277,6 +279,29 @@
                 <h3>每日任务</h3>
                 <p class="security-hint">完成任务领取积分，积分可在商城兑换徽章与称号。</p>
                 <div id="taskCenterPanel"></div>
+            </section>
+        </div>
+
+        <!-- ========== 积分商城 ========== -->
+        <div class="tab-panel" id="panel-shop">
+            <section class="security-section">
+                <h3>积分商城</h3>
+                <p class="security-hint">用积分兑换徽章、称号与头像框，兑换后可在下方背包佩戴或卸下。</p>
+                <div id="shopPanel"></div>
+            </section>
+        </div>
+
+        <!-- ========== 积分排行榜 ========== -->
+        <div class="tab-panel" id="panel-points">
+            <section class="security-section">
+                <h3>积分排行榜</h3>
+                <p class="security-hint">支持总榜 / 周榜 / 月榜切换，展示你的实时排名。</p>
+                <div id="pointsRankList"></div>
+            </section>
+            <section class="security-section">
+                <h3>积分明细</h3>
+                <p class="security-hint">记录每一次积分变动的时间、原因与增减。</p>
+                <div id="pointLogPanel"></div>
             </section>
         </div>
 
