@@ -1479,16 +1479,20 @@
         var session = getSession();
         var username = session ? session.username : '';
         if (emptyEl) emptyEl.style.display = contents.length ? 'none' : 'block';
+        // 置顶优先：status==='pinned' 的内容排在最前，其余保持原顺序
+        var sorted = [];
+        for (var i = 0; i < contents.length; i++) { if (contents[i].status === 'pinned') sorted.push(contents[i]); }
+        for (var i = 0; i < contents.length; i++) { if (contents[i].status !== 'pinned') sorted.push(contents[i]); }
         var html = '';
-        for (var i = 0; i < contents.length; i++) {
-            var item = contents[i];
+        for (var i = 0; i < sorted.length; i++) {
+            var item = sorted[i];
             var likes = getContentLikes(item.id);
             var comments = getContentComments(item.id);
             var liked = username ? isContentLikedBy(item.id, username) : false;
             var favs = username ? getFavorites(username) : [];
             var faved = favs.indexOf(item.id) !== -1;
             html += '<div class="content-card" data-content-id="' + item.id + '"><div class="content-card-head">' +
-                '<span class="content-card-title">' + escapeHtml(item.title) + '</span>' +
+                '<span class="content-card-title">' + escapeHtml(item.title) + (item.status === 'pinned' ? '<span class="pin-badge">置顶</span>' : '') + '</span>' +
                 '<span class="content-card-meta">' + escapeHtml(item.author) + ' · ' + escapeHtml(item.time || '') + '</span></div>' +
                 '<p class="content-card-body">' + escapeHtml(item.body) + '</p>' +
                 '<div class="content-card-actions">' +
@@ -4309,12 +4313,50 @@ window.adminWipeAllUsers = function () {
     var idx = 0;
     function next() {
         if (idx >= queue.length) {
+            // 同步清理被删用户发布的内容及其互动数据（siteContents / contentInteractions），保证无残留
+            var allContents = getContents();
+            var keptContents = [];
+            var removedContentIds = {};
+            for (var ci = 0; ci < allContents.length; ci++) {
+                var cc = allContents[ci];
+                if (cc && cc.author && names.indexOf(cc.author) !== -1) {
+                    removedContentIds[String(cc.id)] = true;
+                } else {
+                    keptContents.push(cc);
+                }
+            }
+            if (keptContents.length !== allContents.length) {
+                saveContents(keptContents);
+                var inter = getInteractions();
+                var interDirty = false;
+                for (var rid in removedContentIds) {
+                    if (inter.likes && inter.likes[rid] !== undefined) { delete inter.likes[rid]; interDirty = true; }
+                    if (inter.likers && inter.likers[rid] !== undefined) { delete inter.likers[rid]; interDirty = true; }
+                    if (inter.comments && inter.comments[rid] !== undefined) { delete inter.comments[rid]; interDirty = true; }
+                }
+                if (interDirty) saveInteractions(inter);
+                // 清理存活用户收藏中指向已删内容的残留引用
+                for (var ki = 0; ki < keep.length; ki++) {
+                    var kName = keep[ki] && keep[ki].username;
+                    if (!kName) continue;
+                    var favs = getFavorites(kName);
+                    var newFavs = [];
+                    var favChanged = false;
+                    for (var fi = 0; fi < favs.length; fi++) {
+                        if (removedContentIds[String(favs[fi])]) { favChanged = true; }
+                        else newFavs.push(favs[fi]);
+                    }
+                    if (favChanged) saveFavorites(kName, newFavs);
+                }
+                addLog('wipe_contents', '清理被删用户发布的内容与互动数据（' + names.length + ' 人）');
+            }
             // 关联键已全部清理：写墓碑 + 写回仅含 admin 的 users（云端与本地同步）
             Promise.all([
                 postCloud('siteDeletedUsers', deleted),
                 saveUsers(keep)
             ]).then(function (res) {
                 if (!res[0] || !res[0].ok) throw new Error('siteDeletedUsers cloud write fail');
+                if (!res[1] || !res[1].ok) throw new Error('users cloud write fail');
                 addLog('wipe_users', '一键删除所有普通用户数据（删除前备份文件：' + backupFile + '），删除 ' + names.length + ' 人：' + names.join('、'));
                 renderUsersTable();
                 if (btn) { btn.disabled = false; btn.textContent = '一键删除所有用户数据'; }
@@ -4668,6 +4710,15 @@ function renderContentTable() {
         return matchSearch && matchType && matchStatus;
     });
 
+    // 置顶优先：已置顶内容排在列表最前，其余保持原顺序
+    var pinned = [];
+    var others = [];
+    for (var i = 0; i < filtered.length; i++) {
+        if (filtered[i].status === 'pinned') pinned.push(filtered[i]);
+        else others.push(filtered[i]);
+    }
+    filtered = pinned.concat(others);
+
     var tbody = document.getElementById('contentTableBody');
     if (!tbody) return;
 
@@ -4682,7 +4733,7 @@ function renderContentTable() {
         else statusLabel = '<span class="role-badge admin">草稿</span>';
         html += '<tr><td><input type="checkbox" class="content-checkbox" value="' + c.id + '"></td><td>' + c.id + '</td><td>' + (c.title || '') + '</td><td>' + typeLabel + '</td><td>' + statusLabel + '</td><td>' + (c.author || 'admin') + '</td><td>' + new Date(c.createdAt).toLocaleDateString('zh-CN') + '</td>' +
             '<td><button class="btn-small btn-primary" onclick="editContent(' + c.id + ')">编辑</button>' +
-            (c.status !== 'pinned' ? '<button class="btn-small" onclick="pinContent(' + c.id + ')">置顶</button>' : '') +
+            (c.status === 'pinned' ? '<button class="btn-small" onclick="pinContent(' + c.id + ')">取消置顶</button>' : '<button class="btn-small" onclick="pinContent(' + c.id + ')">置顶</button>') +
             (c.status !== 'offline' ? '<button class="btn-small btn-secondary" onclick="offlineContent(' + c.id + ')">下线</button>' : '') +
             '<button class="btn-small btn-danger" onclick="deleteContent(' + c.id + ')">删除</button></td></tr>';
     }
