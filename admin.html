@@ -42,6 +42,7 @@
             <ul class="drawer-nav">
                 <li><a href="#" class="drawer-link" data-tab="content"><span class="drawer-icon">📄</span>内容管理</a></li>
                 <li><a href="#" class="drawer-link" data-tab="announcements"><span class="drawer-icon">📢</span>公告管理</a></li>
+                <li><a href="#" class="drawer-link" data-tab="posts"><span class="drawer-icon">📝</span>帖子管理</a></li>
             </ul>
             <div class="drawer-section-title">文件</div>
             <ul class="drawer-nav">
@@ -58,15 +59,13 @@
                 <li><a href="#" class="drawer-link" data-tab="polls"><span class="drawer-icon">🗳️</span>投票管理</a></li>
                 <li><a href="#" class="drawer-link" data-tab="messages"><span class="drawer-icon">✉️</span>消息通知</a></li>
             </ul>
-            <div class="drawer-section-title">积分</div>
-            <ul class="drawer-nav">
-                <li><a href="#" class="drawer-link" data-tab="points"><span class="drawer-icon">⭐</span>积分管理</a></li>
-            </ul>
             <div class="drawer-section-title">系统</div>
             <ul class="drawer-nav">
                 <li><a href="#" class="drawer-link" data-tab="loginSettings"><span class="drawer-icon">🔐</span>登录设置</a></li>
                 <li><a href="#" class="drawer-link" data-tab="settings"><span class="drawer-icon">⚙️</span>系统设置</a></li>
                 <li><a href="#" class="drawer-link" data-tab="logs"><span class="drawer-icon">🧾</span>操作日志</a></li>
+                <li><a href="#" class="drawer-link" data-tab="autoBackup"><span class="drawer-icon">🗂️</span>自动备份</a></li>
+                <li data-super-only="1"><a href="#" class="drawer-link" data-tab="adminPerms"><span class="drawer-icon">🛡️</span>管理员权限</a></li>
                 <li><a href="#" class="drawer-link" data-tab="settings"><span class="drawer-icon">💾</span>备份恢复</a></li>
             </ul>
             <div class="drawer-section-title">我的</div>
@@ -104,6 +103,7 @@
                 <li class="sidebar-group-title">内容</li>
                 <li><a href="#" data-tab="content"><span class="nav-icon">📄</span><span class="nav-text">内容管理</span></a></li>
                 <li><a href="#" data-tab="announcements"><span class="nav-icon">📢</span><span class="nav-text">公告管理</span></a></li>
+                <li><a href="#" data-tab="posts"><span class="nav-icon">📝</span><span class="nav-text">帖子管理</span></a></li>
 
                 <li class="sidebar-group-title">文件</li>
                 <li><a href="#" data-tab="files"><span class="nav-icon">📁</span><span class="nav-text">文件管理</span></a></li>
@@ -116,13 +116,11 @@
                 <li><a href="#" data-tab="albums"><span class="nav-icon">🖼️</span><span class="nav-text">相册管理</span></a></li>
                 <li><a href="#" data-tab="polls"><span class="nav-icon">🗳️</span><span class="nav-text">投票管理</span></a></li>
                 <li><a href="#" data-tab="messages"><span class="nav-icon">✉️</span><span class="nav-text">消息通知</span></a></li>
-
-                <li class="sidebar-group-title">积分</li>
-                <li><a href="#" data-tab="points"><span class="nav-icon">⭐</span><span class="nav-text">积分管理</span></a></li>
-
                 <li class="sidebar-group-title">系统</li>
                 <li><a href="#" data-tab="settings"><span class="nav-icon">⚙️</span><span class="nav-text">系统设置</span></a></li>
                 <li><a href="#" data-tab="logs"><span class="nav-icon">🧾</span><span class="nav-text">操作日志</span></a></li>
+                <li><a href="#" data-tab="autoBackup"><span class="nav-icon">🗂️</span><span class="nav-text">自动备份</span></a></li>
+                <li data-super-only="1"><a href="#" data-tab="adminPerms"><span class="nav-icon">🛡️</span><span class="nav-text">管理员权限</span></a></li>
                 <li><a href="#" data-tab="settings" class="backup-nav-item"><span class="nav-icon">💾</span><span class="nav-text">备份恢复</span></a></li>
                 <li id="viewHomeLi"><a href="index.html" class="btn btn-ghost btn-sm"><span class="nav-icon">🏠</span><span class="nav-text">查看首页</span></a></li>
             </ul>
@@ -629,7 +627,7 @@
                             <button type="button" class="btn btn-primary btn-sm" onclick="exportSiteData()">导出站点备份</button>
                             <button type="button" class="btn btn-secondary btn-sm" id="importBackupBtn" onclick="doImportSiteData()">导入备份并恢复</button>
                         </div>
-                        <p class="backup-tip">备份包含用户、内容、公告、消息、文件、互动、日志、设置、成长与留言数据；恢复操作会覆盖现有数据，请谨慎执行。</p>
+                        <p class="backup-tip">备份包含用户、内容、公告、消息、文件、互动、日志、设置与留言数据；恢复操作会覆盖现有数据，请谨慎执行。</p>
                     </div>
                     <button type="submit" class="btn btn-primary">保存设置</button>
                 </form>
@@ -670,9 +668,75 @@
                 </div>
             </section>
 
-            <!-- 积分管理 -->
-            <section id="tab-points" class="tab-panel">
-                <div id="pointsAdminWrap"></div>
+            <!-- 帖子管理 -->
+            <section id="tab-posts" class="tab-panel">
+                <div class="toolbar">
+                    <input type="text" id="adminPostSearch" placeholder="搜索标题 / 作者..." class="search-input">
+                    <span class="section-badge" id="adminPostCount">共 0 篇帖子</span>
+                </div>
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>标题</th>
+                                <th>作者</th>
+                                <th>发布时间</th>
+                                <th>图片 / 附件</th>
+                                <th>内容摘要</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="adminPostsBody"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- 自动备份 -->
+            <section id="tab-autoBackup" class="tab-panel">
+                <div class="admin-card">
+                    <div class="admin-card-title">自动备份设置</div>
+                    <div class="backup-config-row">
+                        <label class="inline-check"><input type="checkbox" id="autoBackupEnabled"> 启用自动备份</label>
+                        <label>备份周期
+                            <select id="autoBackupCycle" class="filter-select">
+                                <option value="daily">每天</option>
+                                <option value="weekly">每周</option>
+                                <option value="monthly">每月</option>
+                            </select>
+                        </label>
+                        <label>保留份数
+                            <input type="number" id="autoBackupKeep" class="filter-select" min="1" max="20" value="5" style="width:90px;">
+                        </label>
+                        <button type="button" class="btn btn-primary btn-sm" id="autoBackupSaveBtn">保存设置</button>
+                        <button type="button" class="btn btn-secondary btn-sm" id="autoBackupNowBtn">立即备份</button>
+                    </div>
+                    <p class="page-tip" id="autoBackupState"></p>
+                    <p class="page-tip">备份内容包含用户、内容、留言、反馈、公告、帖子、文件索引等站点数据，保存到站点云端备份键，可随时下载为 JSON 文件或一键恢复。</p>
+                </div>
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>备份 ID</th>
+                                <th>备份时间</th>
+                                <th>触发方式</th>
+                                <th>大小</th>
+                                <th>数据统计</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="backupHistoryBody"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- 管理员权限 -->
+            <section id="tab-adminPerms" class="tab-panel">
+                <div class="admin-card">
+                    <div class="admin-card-title">管理员权限管理</div>
+                    <p class="page-tip">可勾选每位管理员能访问的后台模块；超级管理员专属模块（登录设置、系统设置、操作日志、管理员权限）不可分配给普通管理员。新增或删除管理员请在「用户管理 · 新建管理员」中操作。</p>
+                </div>
+                <div id="adminPermsList" class="table-wrapper"></div>
             </section>
         </div>
     </main>
@@ -806,7 +870,7 @@
                 <form id="createAdminForm">
                     <div class="form-group">
                         <label for="adminUsername">用户名</label>
-                        <input type="text" id="adminUsername" maxlength="6" placeholder="最多6个字符">
+                        <input type="text" id="adminUsername" placeholder="最多6个字符（中文按1位计）">
                     </div>
                     <div class="form-group">
                         <label for="adminPassword">密码</label>
@@ -840,6 +904,7 @@
     </div>
 
     <script src="auth.js"></script>
+    <script src="enhance.js"></script>
     <script>
     // ===== 管理后台统一导航抽屉（与首页/个人页同款交互：汉堡展开、遮罩/关闭按钮收起） =====
     (function() {

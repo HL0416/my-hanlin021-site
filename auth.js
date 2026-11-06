@@ -1,6 +1,17 @@
 ﻿// 登录注册系统 - localStorage 前端模拟 + 超级管理员系统 + 管理后台增强
 
 (function () {
+    // 用户名按"字符"计数：中文、emoji 等均记 1 个字符（与 enhance.js 保持一致）
+    function unameCharLen(s) {
+        s = String(s === undefined || s === null ? '' : s);
+        var n = 0;
+        for (var i = 0; i < s.length; i++) {
+            var c = s.charCodeAt(i);
+            if (c >= 0xD800 && c <= 0xDBFF && i + 1 < s.length) i++; // 代理对视为 1 个字符
+            n++;
+        }
+        return n;
+    }
     // ========== 统一数据层 dataStore（云端 Netlify Blobs + 本地 localStorage 双写）==========
     // get/set/remove 保持同步语义：读写本地即时生效，云端后台同步；
     // 读取优先云端：首次访问某键时异步拉取云端值，云端有值且本地为空则回填本地，下次读取生效。
@@ -43,7 +54,10 @@
                     if (!res || !res.ok || res.value === null || res.value === undefined) { return; }
                     if (key === 'users') {
                         // users 键走双向合并：云端为权威，本地独有账号补传云端，被删除账号按墓碑剔除
-                        mergeUsersWithCloud(typeof res.value === 'string' ? res.value : JSON.stringify(res.value));
+                        // 合并前先同步云端墓碑，避免本地残留账号被当成"本地独有"补传复活
+                        syncDeletedUsers().then(function () {
+                            mergeUsersWithCloud(typeof res.value === 'string' ? res.value : JSON.stringify(res.value));
+                        });
                         return;
                     }
                     if (isEmptyLocalValue(readLocal(key))) {
@@ -86,8 +100,42 @@
             try { return JSON.parse(readLocal('siteDeletedUsers') || '[]'); } catch (e) { return []; }
         }
         function saveDeletedUsers(list) {
-            writeLocal('siteDeletedUsers', JSON.stringify(list));
-            pushCloud('siteDeletedUsers', list);
+            // 双保险：内置超级管理员 admin 永不写入墓碑，避免任何调用路径误伤导致管理员被合并剔除
+            var safe = [];
+            if (Array.isArray(list)) {
+                for (var si = 0; si < list.length; si++) {
+                    var nm = list[si];
+                    if (!nm || nm === 'admin') continue;
+                    if (safe.indexOf(nm) === -1) safe.push(nm);
+                }
+            }
+            writeLocal('siteDeletedUsers', JSON.stringify(safe));
+            // 返回云端写入 Promise（resolve {ok:boolean}），供调用方判断是否落盘
+            return pushCloud('siteDeletedUsers', safe);
+        }
+
+        // 云端墓碑同步：把云端删除名单只追加地并入本地（admin 永不入墓碑）
+        // 任何合并 users 的动作都必须先执行它，否则旧设备本地残留账号会在补传环节复活
+        function syncDeletedUsers() {
+            if (typeof fetch !== 'function') { return Promise.resolve(getDeletedUsers()); }
+            return fetch(CLOUD_URL + '?key=' + encodeURIComponent('siteDeletedUsers'))
+                .then(function (r) { return r.json(); })
+                .then(function (res) {
+                    if (!res || !res.ok || res.value === null || res.value === undefined) { return getDeletedUsers(); }
+                    var cloudList = [];
+                    try { cloudList = JSON.parse(typeof res.value === 'string' ? res.value : JSON.stringify(res.value)); } catch (e) { cloudList = []; }
+                    if (!Array.isArray(cloudList)) { return getDeletedUsers(); }
+                    var merged = getDeletedUsers();
+                    var changed = false;
+                    for (var i = 0; i < cloudList.length; i++) {
+                        var name = cloudList[i];
+                        if (!name || name === 'admin') { continue; }
+                        if (merged.indexOf(name) === -1) { merged.push(name); changed = true; }
+                    }
+                    if (changed) { saveDeletedUsers(merged); }
+                    return merged;
+                })
+                .catch(function () { return getDeletedUsers(); });
         }
 
         // 用户表双向合并：云端为权威 + 本地存量补传 + 墓碑剔除
@@ -146,6 +194,21 @@
                 pushCloud('users', merged);
                 saveDeletedUsers(newDeleted);
             }
+            // 幽灵会话清理：当前登录用户若已不在合并后的用户表中（管理端删除 / 墓碑剔除），
+            // 立即清除 currentUser，避免被删账号在刷新或跨设备切换后仍显示为登录态
+            try {
+                var sessRaw = readLocal('currentUser');
+                if (sessRaw) {
+                    var sess = JSON.parse(sessRaw);
+                    if (sess && sess.username) {
+                        var stillExists = false;
+                        for (var s = 0; s < merged.length; s++) {
+                            if (merged[s] && merged[s].username === sess.username) { stillExists = true; break; }
+                        }
+                        if (!stillExists) { removeLocal('currentUser'); }
+                    }
+                }
+            } catch (e) { /* ignore */ }
         }
 
         function markUserDeleted(username) {
@@ -167,18 +230,22 @@
             if (typeof fetch !== 'function') { return; }
             var keys = ['currentUser', 'adminLogs', 'siteTheme', 'announcements',
                 'siteGuestbook', 'siteVisitLog', 'siteContents', 'siteSettings', 'siteAlbums',
-                'siteChats', 'siteChatOpenWith', 'siteDiary_', 'siteFeedbacks', 'siteGrowth_',
+                'siteChats', 'siteChatOpenWith', 'siteDiary_', 'siteFeedbacks',
                 'siteMoments', 'siteNotes_', 'sitePolls', 'siteReadLater_', 'siteNotifications',
-                'siteOnline', 'siteFollows_', 'siteSigninDates_', 'siteAchievements_', 'siteHistory_',
-                'taskCenter_', 'userActivity_', 'userDevices_', 'userFavorites_', 'managedFiles',
+                'siteOnline', 'siteFollows_', 'siteHistory_',
+                'userActivity_', 'userDevices_', 'userFavorites_', 'managedFiles',
                 'messages', 'forgotCode', 'forgotTarget', 'forgotTargetUsername', 'smsCode',
                 'contentInteractions', 'siteFriendRequests', 'siteDailyWord'];
             keys.forEach(function (k) {
                 pullKey(k);
             });
             // users 单独走合并拉取，保证后台增删改用户后刷新/多设备一致
+            // 顺序关键：先同步云端墓碑，再合并 users。否则旧设备本地残留的被删账号会在补传环节复活
             cloudSynced['users'] = true;
-            fetch(CLOUD_URL + '?key=' + encodeURIComponent('users'))
+            syncDeletedUsers()
+                .then(function () {
+                    return fetch(CLOUD_URL + '?key=' + encodeURIComponent('users'));
+                })
                 .then(function (r) { return r.json(); })
                 .then(function (res) {
                     if (res && res.ok && res.value !== null && res.value !== undefined) {
@@ -208,6 +275,9 @@
             },
             markUserDeleted: markUserDeleted,
             unmarkUserDeleted: unmarkUserDeleted,
+            getDeletedUsers: getDeletedUsers,
+            saveDeletedUsers: saveDeletedUsers,
+            syncDeletedUsers: syncDeletedUsers,
             mergeUsersWithCloud: mergeUsersWithCloud,
             init: init
         };
@@ -222,7 +292,9 @@
         // 窗口聚焦 / 从缓存回退时重新拉取用户表并双向合并，保证后台增删改用户后刷新/多设备一致
         window.addEventListener('focus', function () {
             if (typeof fetch !== 'function') { return; }
-            fetch('/.netlify/functions/data?key=' + encodeURIComponent('users'))
+            // 先同步云端墓碑再合并 users：旧标签页/旧设备本地残留的被删账号不得补传复活
+            dataStore.syncDeletedUsers()
+                .then(function () { return fetch('/.netlify/functions/data?key=' + encodeURIComponent('users')); })
                 .then(function (r) { return r.json(); })
                 .then(function (res) {
                     if (res && res.ok && res.value !== null && res.value !== undefined) {
@@ -234,7 +306,8 @@
         if (typeof window.addEventListener === 'function' && typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
             document.addEventListener('visibilitychange', function () {
                 if (document.visibilityState === 'visible' && typeof fetch === 'function') {
-                    fetch('/.netlify/functions/data?key=' + encodeURIComponent('users'))
+                    dataStore.syncDeletedUsers()
+                        .then(function () { return fetch('/.netlify/functions/data?key=' + encodeURIComponent('users')); })
                         .then(function (r) { return r.json(); })
                         .then(function (res) {
                             if (res && res.ok && res.value !== null && res.value !== undefined) {
@@ -264,7 +337,28 @@
     }
 
     function saveUsers(users) {
-        return dataStore.set('users', JSON.stringify(users));
+        // 写入前剔除墓碑中的账号：旧设备/旧标签页在其它操作中整表回写 users 时，
+        // 其本地残留的被删用户不会重新写回云端，从源头阻断复活
+        // 注意：墓碑函数定义在 dataStore 闭包内，此处只能经 window 暴露或 dataStore 读取，
+        // 直接裸调用 getDeletedUsers 会因作用域链找不到而抛错并中断整段脚本
+        var deleted = [];
+        try {
+            if (typeof window !== 'undefined' && typeof window.getDeletedUsers === 'function') {
+                deleted = window.getDeletedUsers() || [];
+            } else if (typeof dataStore !== 'undefined' && dataStore && typeof dataStore.get === 'function') {
+                deleted = JSON.parse(dataStore.get('siteDeletedUsers') || '[]') || [];
+            }
+        } catch (e) { deleted = []; }
+        if (!Array.isArray(deleted)) deleted = [];
+        var list = Array.isArray(users) ? users : [];
+        var filtered = [];
+        for (var i = 0; i < list.length; i++) {
+            var u = list[i];
+            if (!u || !u.username) { continue; }
+            if (deleted.indexOf(u.username) !== -1) { continue; }
+            filtered.push(u);
+        }
+        return dataStore.set('users', JSON.stringify(filtered));
     }
 
     function setSession(user) {
@@ -388,62 +482,6 @@
         saveVisitLog(list);
     }
 
-    // ========== 成长体系（积分 / 等级 / 签到）==========
-    var GROWTH_LEVELS = [
-        { min: 0, name: '新手' },
-        { min: 100, name: '青铜' },
-        { min: 300, name: '白银' },
-        { min: 600, name: '黄金' },
-        { min: 1000, name: '钻石' },
-        { min: 2000, name: '大师' }
-    ];
-    function getGrowth(username) {
-        if (!username) return null;
-        try { return JSON.parse(dataStore.get('siteGrowth_' + username) || '{"points":0,"streak":0,"lastSignin":""}'); } catch (e) { return { points: 0, streak: 0, lastSignin: '' }; }
-    }
-    function saveGrowth(username, data) {
-        dataStore.set('siteGrowth_' + username, JSON.stringify(data));
-    }
-    function growthLevel(points) {
-        var idx = 0;
-        for (var i = 0; i < GROWTH_LEVELS.length; i++) {
-            if (points >= GROWTH_LEVELS[i].min) idx = i;
-        }
-        var cur = GROWTH_LEVELS[idx];
-        var next = GROWTH_LEVELS[idx + 1] || null;
-        var pct = next ? Math.min(100, Math.round((points - cur.min) / (next.min - cur.min) * 100)) : 100;
-        return { level: idx + 1, name: cur.name, next: next, pct: pct };
-    }
-    // 积分流水统一记录：增减分 + 明细留痕（最多保留最近 500 条）
-    function recordPointFlow(username, delta, reason) {
-        if (!username || !delta) return;
-        var data = getGrowth(username);
-        data.points = (data.points || 0) + delta;
-        saveGrowth(username, data);
-        var list = getPointLog(username);
-        list.unshift({ time: nowTextStr(), ts: Date.now(), reason: reason || '', delta: delta, balance: data.points });
-        if (list.length > 500) list.length = 500;
-        savePointLog(username, list);
-        addLog('points', '用户 ' + username + ' 积分 ' + (delta >= 0 ? '+' : '') + delta + (reason ? '（' + reason + '）' : ''));
-    }
-    function getPointLog(username) {
-        try { return JSON.parse(dataStore.get('sitePointFlow_' + username) || '[]'); } catch (e) { return []; }
-    }
-    function savePointLog(username, list) {
-        dataStore.set('sitePointFlow_' + username, JSON.stringify(list));
-    }
-    // 商城背包：平铺 owned 结构（itemId -> 购买记录），与全局模块共用同一键
-    function getInventory(username) {
-        try { return JSON.parse(dataStore.get('siteInventory_' + username) || '{}'); } catch (e) { return {}; }
-    }
-    function saveInventory(username, data) {
-        dataStore.set('siteInventory_' + username, JSON.stringify(data));
-    }
-    function ensureInventory(username) {
-        var inv = getInventory(username);
-        if (!inv || typeof inv !== 'object') { inv = {}; saveInventory(username, inv); }
-        return inv;
-    }
     function startOfWeek() {
         var d = new Date(); d.setHours(0, 0, 0, 0);
         var day = d.getDay() || 7;
@@ -459,10 +497,6 @@
         var m = /^(\d{4})-(\d{1,2})-(\d{1,2}) (\d{1,2}):(\d{2})/.exec(str);
         if (!m) return 0;
         return new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]).getTime();
-    }
-    function addPoints(username, n, reason) {
-        if (!username) return;
-        recordPointFlow(username, n, reason || '');
     }
 
     // ========== 用户内容（留言 / 动态）==========
@@ -519,11 +553,16 @@
         return { ok: ok, level: level, tip: tip };
     }
 
-    // 按账号类型查找用户：手机号 -> 邮箱 -> 用户名
+    // 按账号类型查找用户：账号ID -> 手机号 -> 邮箱 -> 用户名
     function findUserByAccount(users, account) {
         account = String(account || '').trim();
         if (!account) return null;
         var i;
+        // 账号ID（accountId）可作为登录凭据，与用户名/手机号/邮箱并列
+        var accLower = account.toLowerCase();
+        for (i = 0; i < users.length; i++) {
+            if (users[i] && users[i].accountId && String(users[i].accountId).toLowerCase() === accLower) return users[i];
+        }
         if (isValidPhone(account)) {
             for (i = 0; i < users.length; i++) {
                 if (users[i].phone === account) return users[i];
@@ -612,6 +651,18 @@
     // ========== 初始化：创建默认超级管理员账号 ==========
     (function initDefaultAdmin() {
         var users = getUsers();
+        if (!Array.isArray(users)) users = [];
+        // 脏数据防护：users 中若含 null / 无 username 的异常项（云端写入异常、手工改动等），
+        // 直接读取属性会抛 TypeError 并中断整个 auth.js 顶层执行，
+        // 导致其后挂载的 window.adminWipeAllUsers 等管理端函数全部缺失（一键删除按钮点不动）
+        var cleanUsers = [];
+        for (var ci = 0; ci < users.length; ci++) {
+            if (users[ci] && users[ci].username) cleanUsers.push(users[ci]);
+        }
+        if (cleanUsers.length !== users.length) {
+            users = cleanUsers;
+            saveUsers(users);
+        }
         for (var i = 0; i < users.length; i++) {
             if (users[i].username === 'admin') {
                 // 老数据兼容：若 admin 已存在但 accountId 不是目标值，则修正
@@ -644,7 +695,7 @@
             var phone = document.getElementById('regPhone') ? document.getElementById('regPhone').value.trim() : '';
             var email = document.getElementById('regEmail') ? document.getElementById('regEmail').value.trim() : '';
 
-            if (username.length > 6) { showError('用户名最多6个字符'); return; }
+            if (unameCharLen(username) > 6) { showError('用户名最多 6 个字符（中文按 1 个字符计）'); return; }
             if (/^1[3-9]\d{9}$/.test(username)) { showError('用户名不能使用手机号格式，请更换用户名'); return; }
             if (isValidEmail(username)) { showError('用户名不能使用邮箱格式，请更换用户名'); return; }
             if (phone && !isValidPhone(phone)) { showError('手机号格式不正确（11位，1开头）'); return; }
@@ -872,9 +923,14 @@
             var password = document.getElementById('password').value;
             if (!account || !password) { showError('请输入账号和密码'); return; }
 
-            // 自动识别：精确匹配 username -> phone -> email(忽略大小写)
+            // 自动识别：精确匹配 username -> accountId -> phone -> email(忽略大小写)
             for (i = 0; i < users.length; i++) {
                 if (users[i].username === account) { found = users[i]; break; }
+            }
+            if (!found) {
+                for (i = 0; i < users.length; i++) {
+                    if (users[i].accountId && String(users[i].accountId).toLowerCase() === account.toLowerCase()) { found = users[i]; break; }
+                }
             }
             if (!found) {
                 for (i = 0; i < users.length; i++) {
@@ -935,6 +991,13 @@
     // 导航登录态同步：未登录显示登录/注册，隐藏退出/个人中心/管理后台入口
     function syncNavAuth() {
         var s = getSession();
+        // 幽灵会话清理：用户表已就绪但当前会话账号不存在（已被一键删除/管理员删除）时自动登出，
+        // 防止被删账号在本地/云端 currentUser 残留导致刷新后仍显示已登录（账号“复活”）
+        var navUsers = getUsers();
+        if (s && s.username && navUsers.length > 0 && !findUserByUsername(navUsers, s.username)) {
+            clearSession();
+            s = null;
+        }
         var logged = !!(s && s.username);
         var showMap = {
             'loginBtn': logged ? 'none' : 'inline-block',
@@ -967,19 +1030,22 @@
     }
     window.syncNavAuth = syncNavAuth;
 
-    if (welcomeEl && logoutBtn) {
+    // 首页欢迎栏已按需求移除，改为按页面元素判定：无欢迎栏时首页渲染、导航同步、退出登录仍需正常工作
+    var isIndexHomePage = !!document.getElementById('heroCarousel');
+
+    if (logoutBtn || welcomeEl) {
         var session = getSession();
         var fullUser = null;
         if (session) {
             fullUser = findUserByUsername(getUsers(), session.username);
             renderWelcomeBanner(session, fullUser);
-            logoutBtn.addEventListener('click', function () {
+            if (logoutBtn) logoutBtn.addEventListener('click', function () {
                 clearSession();
                 window.location.href = 'login.html';
             });
         } else {
             // 游客模式：不强制跳转登录，直接展示公开内容
-            welcomeEl.textContent = '欢迎来到我的站点！';
+            if (welcomeEl) welcomeEl.textContent = '欢迎来到我的站点！';
             var dateElG = document.getElementById('welcomeDate');
             if (dateElG) dateElG.textContent = '今天是 ' + todayStr();
             var avatarElG = document.getElementById('welcomeAvatar');
@@ -994,7 +1060,13 @@
             if (drawerAdminLinkElG) drawerAdminLinkElG.style.display = 'none';
         }
         syncNavAuth();
-        initHomePage(session, fullUser);
+        // 首页各模块渲染彼此独立，任一模块异常都不得中断 auth.js 顶层执行，
+        // 否则其后的 window 函数（含 adminWipeAllUsers 等管理端能力）将整体缺失
+        try {
+            if (isIndexHomePage) initHomePage(session, fullUser);
+        } catch (e) {
+            if (window.console && console.error) { console.error('initHomePage 模块渲染异常:', e); }
+        }
     }
 
     function initHomePage(session, fullUser) {
@@ -1007,8 +1079,10 @@
         renderGuestbook();
         renderMomentFeed();
         renderDailyWord('dailyWordHome');
-        renderPollList();
-        renderPublicAlbums();
+        // renderPollList / renderPublicAlbums 定义在 IIFE 之后（挂在 window 上），
+        // 此处裸调用会抛 ReferenceError 并中断整个 auth.js 后续执行，必须做存在性判断
+        if (typeof window.renderPollList === 'function') { window.renderPollList(); }
+        if (typeof window.renderPublicAlbums === 'function') { window.renderPublicAlbums(); }
         initBackTop();
 
         // 全局搜索
@@ -1348,9 +1422,7 @@
         saveGuestbook(list);
         input.value = '';
         renderGuestbook();
-        if (window.markTaskDone) window.markTaskDone('guestbook');
-        addPoints(session.username, 2, '发布留言');
-        showToast('留言发布成功，积分 +2', 'success');
+        showToast('留言发布成功', 'success');
     };
 
     // ========== 热门排行榜 ==========
@@ -1463,60 +1535,6 @@
         showToast(lines.join('\n'), 'success');
     };
 
-    // ========== 成长中心（个人中心页）==========
-    function renderGrowth() {
-        var card = document.getElementById('growthCard');
-        if (!card) return;
-        var session = getSession();
-        if (!session || !session.username) return;
-        var data = getGrowth(session.username);
-        var info = growthLevel(data.points || 0);
-        document.getElementById('growthLevelBadge').textContent = 'Lv.' + info.level;
-        document.getElementById('growthLevelName').textContent = info.name;
-        document.getElementById('growthPoints').textContent = data.points || 0;
-        document.getElementById('growthStreak').textContent = data.streak || 0;
-        document.getElementById('growthProgressFill').style.width = info.pct + '%';
-        var nextMin = info.next ? info.next.min : data.points;
-        document.getElementById('growthProgressText').textContent = (data.points || 0) + ' / ' + nextMin + (info.next ? '（下一级 ' + info.next.name + '）' : '（已达最高级）');
-        var btn = document.getElementById('growthSigninBtn');
-        var tip = document.getElementById('growthSigninTip');
-        if (!btn || !tip) return;
-        var today = new Date();
-        var todayKey = today.getFullYear() + '-' + (today.getMonth() + 1) + '-' + today.getDate();
-        if (data.lastSignin === todayKey) {
-            btn.disabled = true;
-            btn.textContent = '今日已签到';
-            tip.textContent = '明天再来吧';
-            tip.classList.add('done');
-        } else {
-            btn.disabled = false;
-            btn.textContent = '今日签到 +5';
-            tip.textContent = '连续签到奖励更多积分';
-            tip.classList.remove('done');
-        }
-    }
-
-    window.doSignin = function () {
-        var session = getSession();
-        if (!session || !session.username) { showToast('请先登录', 'warning'); return; }
-        var data = getGrowth(session.username);
-        var today = new Date();
-        var todayKey = today.getFullYear() + '-' + (today.getMonth() + 1) + '-' + today.getDate();
-        if (data.lastSignin === todayKey) { showToast('今天已经签到过啦', 'warning'); return; }
-        var yesterday = new Date(today.getTime() - 86400000);
-        var yKey = yesterday.getFullYear() + '-' + (yesterday.getMonth() + 1) + '-' + yesterday.getDate();
-        var bonus = (data.lastSignin === yKey) ? (data.streak + 1) : 1;
-        var earn = 5 + Math.min(5, bonus - 1);
-        data.streak = (data.lastSignin === yKey) ? (data.streak + 1) : 1;
-        data.lastSignin = todayKey;
-        saveGrowth(session.username, data);
-        // 统一走积分流水：加积分 + 写明细 + 留痕（不再手动改 points，避免双倍加分）
-        recordPointFlow(session.username, earn, '每日签到（连续 ' + data.streak + ' 天）');
-        addLog('signin', '用户 ' + session.username + ' 签到 +' + earn + ' 积分（连续 ' + data.streak + ' 天）');
-        if (window.markTaskDone) window.markTaskDone('signin');
-        renderGrowth();
-        showToast('签到成功，积分 +' + earn + '，连续签到 ' + data.streak + ' 天', 'success');
-    };
 
     function renderContentCards(excludeAuthor) {
         var listEl = document.getElementById('contentList');
@@ -1635,13 +1653,7 @@
             map.likes[contentId] += 1;
             map.likers[contentId].push(session.username);
             addActivity(session.username, '点赞', '点赞了一条内容');
-            if (window.markTaskDone) window.markTaskDone('like');
             if (window.notifyContentLike) window.notifyContentLike(contentId);
-            var contentAuthor = getContentAuthorById(contentId);
-            if (contentAuthor && contentAuthor !== session.username) {
-                addPoints(contentAuthor, 1, '内容被点赞');
-                if (window.markTaskDoneFor) window.markTaskDoneFor(contentAuthor, 'be_liked');
-            }
         }
         saveInteractions(map);
         renderContentCards();
@@ -1671,15 +1683,6 @@
         map.comments[contentId].push({ author: session.username, text: text, time: nowText() });
         saveInteractions(map);
         addActivity(session.username, '评论', '评论了一条内容');
-        if (window.markTaskDone) window.markTaskDone('comment');
-        // 被评论者自动完成「被评论」任务（可在任务中心领取积分）
-        var contents = getContents();
-        for (var c = 0; c < contents.length; c++) {
-            if (String(contents[c].id) === String(contentId) && contents[c].author && contents[c].author !== session.username) {
-                if (window.markTaskDoneFor) window.markTaskDoneFor(contents[c].author, 'be_commented');
-                break;
-            }
-        }
         if (window.notifyContentComment) window.notifyContentComment(contentId, text);
         renderContentCards();
     }
@@ -1802,10 +1805,7 @@
             window.location.href = 'login.html';
         } else {
             loadProfile(session.username);
-            renderGrowth();
             initBackTop();
-            var signinBtn = document.getElementById('growthSigninBtn');
-            if (signinBtn) signinBtn.addEventListener('click', function () { window.doSignin(); });
         }
     }
 
@@ -2151,11 +2151,6 @@
             if (tabName === 'messages') renderUserMessages();
             if (tabName === 'favorites') renderFavorites();
             if (tabName === 'timeline') renderActivityTimeline();
-            if (tabName === 'shop' && window.renderShopPanel) window.renderShopPanel();
-            if (tabName === 'points') {
-                if (window.renderPointsRank) window.renderPointsRank('total');
-                if (window.renderPointLogPanel) window.renderPointLogPanel();
-            }
         });
     });
 
@@ -2792,7 +2787,10 @@ function getDailyWord() {
     try { if (d) return JSON.parse(d); } catch (e) { /* ignore */ }
     var now = new Date();
     var todayKey = now.getFullYear() + '-' + (now.getMonth() + 1) + '-' + now.getDate();
-    var q = DAILY_QUOTES[Math.floor(Math.random() * DAILY_QUOTES.length)];
+    // DAILY_QUOTES 的赋值语句位于本 IIFE 之后（var 提升但值为 undefined），
+    // initHomePage 在 IIFE 内立即执行时读取它会抛 TypeError，必须做兜底
+    var pool = (typeof DAILY_QUOTES !== 'undefined' && DAILY_QUOTES && DAILY_QUOTES.length) ? DAILY_QUOTES : ['每一天都是新的开始。'];
+    var q = pool[Math.floor(Math.random() * pool.length)];
     var obj = { date: todayKey, text: q, author: '每日一言' };
     dataStore.set('siteDailyWord', JSON.stringify(obj));
     return obj;
@@ -2821,7 +2819,6 @@ function addDiary(date, mood, title, text) {
     list.unshift({ id: Date.now(), date: date || fmtDate(Date.now()), mood: mood || 'normal', title: title || '', text: text.trim(), ts: Date.now() });
     _saveDiary(s.username, list);
     addLog('diary', '用户 ' + s.username + ' 写下一篇日记');
-    if (window.checkAchievements) window.checkAchievements();
     renderDiaryPanel();
     renderMyNotes();
     showToast('日记已保存', 'success');
@@ -2917,7 +2914,6 @@ function addNote(text) {
     var list = _getNotes(s.username);
     list.unshift({ id: Date.now(), text: text.trim(), ts: Date.now() });
     _saveNotes(s.username, list);
-    if (window.checkAchievements) window.checkAchievements();
     renderMyNotes();
     showToast('随手记已保存', 'success');
 }
@@ -3016,7 +3012,6 @@ function toggleReadLater(contentId) {
         showToast('已加入稍后读', 'success');
     }
     renderReadLaterList();
-    if (window.checkAchievements) window.checkAchievements();
 }
 function removeReadLater(id) {
     var s = getSession();
@@ -3082,173 +3077,6 @@ function renderTrackPanel() {
     renderHistoryList();
 }
 
-// ==================== [扩展] 成长体系升级：签到日历 + 成就徽章 + 等级经验条 ====================
-var ACHIEVEMENTS = [
-    { id: 'register', name: '初来乍到', desc: '完成注册', icon: '🎉' },
-    { id: 'first_signin', name: '初次签到', desc: '完成首次签到', icon: '☀️' },
-    { id: 'streak3', name: '持之以恒', desc: '连续签到3天', icon: '🔥' },
-    { id: 'streak7', name: '七日之约', desc: '连续签到7天', icon: '💪' },
-    { id: 'points100', name: '小有所成', desc: '积分达到100', icon: '🌟' },
-    { id: 'points500', name: '声名鹊起', desc: '积分达到500', icon: '💎' },
-    { id: 'points1000', name: '千分达人', desc: '积分达到1000', icon: '👑' },
-    { id: 'diary1', name: '日记初体验', desc: '写下第一篇日记', icon: '📔' },
-    { id: 'diary10', name: '生活记录者', desc: '累计写下10篇日记', icon: '📚' },
-    { id: 'note1', name: '灵感速记', desc: '写下第一条随手记', icon: '💡' },
-    { id: 'fav5', name: '慧眼识珠', desc: '收藏5条内容', icon: '⭐' },
-    { id: 'read10', name: '博闻多识', desc: '累计浏览10条内容', icon: '📖' },
-    { id: 'friend1', name: '广交益友', desc: '添加第一个好友', icon: '🤝' },
-    { id: 'follow1', name: '初见倾心', desc: '第一次关注他人', icon: '👋' },
-    { id: 'moment1', name: '动态首发', desc: '发布第一条动态', icon: '📣' },
-    { id: 'moment10', name: '活跃达人', desc: '累计发布10条动态', icon: '📢' },
-    { id: 'chat1', name: '畅所欲言', desc: '发出第一条私信', icon: '💬' },
-    { id: 'album1', name: '光影记录', desc: '创建第一个相册', icon: '🖼️' },
-    { id: 'poll1', name: '发起讨论', desc: '发起第一个投票', icon: '🗳️' }
-];
-function _getSigninDates(u) { try { return JSON.parse(dataStore.get('siteSigninDates_' + u) || '[]'); } catch (e) { return []; } }
-function _saveSigninDates(u, list) { dataStore.set('siteSigninDates_' + u, JSON.stringify(list)); }
-function _getAchievements(u) { try { return JSON.parse(dataStore.get('siteAchievements_' + u) || '{}'); } catch (e) { return {}; } }
-function _saveAchievements(u, map) { dataStore.set('siteAchievements_' + u, JSON.stringify(map)); }
-
-(function () {
-    var base = window.doSignin;
-    window.doSignin = function () {
-        var ret = base ? base.apply(this, arguments) : undefined;
-        var s = getSession();
-        if (s && s.username) {
-            var g = getGrowth(s.username);
-            var todayKey = fmtDate(Date.now());
-            var dates = _getSigninDates(s.username);
-            if (g && g.lastSignin === todayKey && dates.indexOf(todayKey) === -1) {
-                dates.push(todayKey);
-                _saveSigninDates(s.username, dates);
-            }
-        }
-        renderSigninCalendar();
-        if (window.checkAchievements) window.checkAchievements();
-        return ret;
-    };
-})();
-
-function renderSigninCalendar() {
-    var el = document.getElementById('signinCalendar');
-    if (!el) return;
-    var s = getSession(); if (!s) return;
-    var dates = _getSigninDates(s.username);
-    var now = new Date();
-    var y = now.getFullYear();
-    var m = now.getMonth();
-    var first = new Date(y, m, 1);
-    var startDow = first.getDay();
-    var daysInMonth = new Date(y, m + 1, 0).getDate();
-    var today = now.getDate();
-    var html = '<div class="cal-head">' + y + ' 年 ' + (m + 1) + ' 月</div><div class="cal-grid">';
-    var weekNames = ['日', '一', '二', '三', '四', '五', '六'];
-    weekNames.forEach(function (w) { html += '<div class="cal-week">' + w + '</div>'; });
-    for (var i = 0; i < startDow; i++) html += '<div class="cal-cell empty"></div>';
-    for (var d = 1; d <= daysInMonth; d++) {
-        var key = y + '-' + (m + 1) + '-' + d;
-        var signed = dates.indexOf(key) !== -1;
-        var isToday = d === today;
-        html += '<div class="cal-cell' + (signed ? ' signed' : '') + (isToday ? ' today' : '') + '">' + d + (signed ? '<i>✓</i>' : '') + '</div>';
-    }
-    html += '</div>';
-    el.innerHTML = html;
-    var g = getGrowth(s.username);
-    var tipEl = document.getElementById('signinStreakTip');
-    if (tipEl) tipEl.textContent = g && g.streak ? '当前连续签到 ' + g.streak + ' 天，明天继续可获得额外积分奖励' : '每天签到可累积连续天数，获得额外积分';
-}
-
-function renderGrowthExPanel() {
-    var el = document.getElementById('growthExPanel');
-    if (!el) return;
-    var s = getSession(); if (!s) return;
-    var g = getGrowth(s.username);
-    var info = growthLevel(g ? g.points : 0);
-    var exp = g ? (g.points || 0) : 0;
-    var nextMin = info.next ? info.next.min : exp;
-    var html =
-        '<div class="growth-ex-card">' +
-        '<div class="growth-ex-head"><span class="growth-ex-level">Lv.' + info.level + ' · ' + escapeHtml(info.name) + '</span>' +
-        '<span class="growth-ex-points">' + exp + ' 经验值</span></div>' +
-        '<div class="growth-progress-track"><div class="growth-progress-fill" style="width:' + info.pct + '%"></div></div>' +
-        '<div class="growth-progress-text">' + exp + ' / ' + nextMin + (info.next ? '（距下一级 ' + escapeHtml(info.next.name) + '）' : '（已达最高等级）') + '</div>' +
-        '</div>';
-    el.innerHTML = html;
-}
-
-function checkAchievements(username) {
-    var u = username || (getSession() ? getSession().username : '');
-    if (!u) return;
-    var g = getGrowth(u);
-    var unlocked = _getAchievements(u);
-    var changed = false;
-    var newly = [];
-    var condition = {
-        register: function () { return true; },
-        first_signin: function () { return g && !!g.lastSignin; },
-        streak3: function () { return g && (g.streak || 0) >= 3; },
-        streak7: function () { return g && (g.streak || 0) >= 7; },
-        points100: function () { return g && (g.points || 0) >= 100; },
-        points500: function () { return g && (g.points || 0) >= 500; },
-        points1000: function () { return g && (g.points || 0) >= 1000; },
-        diary1: function () { return _getDiary(u).length >= 1; },
-        diary10: function () { return _getDiary(u).length >= 10; },
-        note1: function () { return _getNotes(u).length >= 1; },
-        fav5: function () { return getFavorites(u).length >= 5; },
-        read10: function () { return _getHistory(u).length >= 10; },
-        friend1: function () { return _getFriendList(u).length >= 1; },
-        follow1: function () { return _getFollows(u).length >= 1; },
-        moment1: function () { return _getMomentsBy(u).length >= 1; },
-        moment10: function () { return _getMomentsBy(u).length >= 10; },
-        chat1: function () { return getChats().filter(function (c) { return c.from === u; }).length >= 1; },
-        album1: function () { return getSiteAlbums().filter(function (a) { return a.owner === u; }).length >= 1; },
-        poll1: function () { return getSitePolls().filter(function (p) { return p.author === u; }).length >= 1; }
-    };
-    ACHIEVEMENTS.forEach(function (a) {
-        if (!unlocked[a.id] && condition[a.id] && condition[a.id]()) {
-            unlocked[a.id] = Date.now();
-            changed = true;
-            newly.push(a);
-        }
-    });
-    if (changed) {
-        _saveAchievements(u, unlocked);
-        var reward = newly.length * 10;
-        recordPointFlow(u, reward, '解锁成就：' + newly.map(function (a) { return a.name; }).join('、'));
-        addLog('achievement', '用户 ' + u + ' 解锁成就 ' + newly.map(function (a) { return a.name; }).join('、') + '，积分 +' + reward);
-        showToast('成就解锁！' + newly.map(function (a) { return a.name; }).join('、') + '（+10 积分）', 'success');
-    }
-    renderAchievements();
-    renderGrowthExPanel();
-}
-function renderAchievements() {
-    var el = document.getElementById('achievementWall');
-    if (!el) return;
-    var s = getSession(); if (!s) return;
-    var unlocked = _getAchievements(s.username);
-    var unlockedCount = 0;
-    var html = '<div class="ach-grid">';
-    ACHIEVEMENTS.forEach(function (a) {
-        var isUnlocked = !!unlocked[a.id];
-        if (isUnlocked) unlockedCount++;
-        html += '<div class="ach-item' + (isUnlocked ? ' unlocked' : ' locked') + '">' +
-            '<div class="ach-icon">' + a.icon + '</div>' +
-            '<div class="ach-name">' + escapeHtml(a.name) + '</div>' +
-            '<div class="ach-desc">' + escapeHtml(a.desc) + '</div>' +
-            (isUnlocked ? '<div class="ach-status">已解锁</div>' : '<div class="ach-status locked">未解锁</div>') +
-            '</div>';
-    });
-    html += '</div>';
-    var head = document.getElementById('achievementSummary');
-    if (head) head.textContent = '已解锁 ' + unlockedCount + ' / ' + ACHIEVEMENTS.length + ' 项成就';
-    el.innerHTML = html;
-}
-function renderGrowthPanelAll() {
-    renderGrowthExPanel();
-    renderSigninCalendar();
-    renderAchievements();
-}
-
 // ==================== [扩展] 个人主页与动态：关注/粉丝 + 动态广场 + 公开主页 ====================
 function _getFollows(u) { try { return JSON.parse(dataStore.get('siteFollows_' + u) || '[]'); } catch (e) { return []; } }
 function _saveFollows(u, list) { dataStore.set('siteFollows_' + u, JSON.stringify(list)); }
@@ -3285,7 +3113,6 @@ function toggleFollow(target) {
         addLog('follow', '用户 ' + me + ' 关注了 ' + target);
         showToast('已关注 ' + target, 'success');
     }
-    if (window.checkAchievements) window.checkAchievements();
     renderFollowPanel();
     if (window.refreshFriendBadge) window.refreshFriendBadge();
 }
@@ -3297,16 +3124,13 @@ function publishMoment(text) {
     moments.unshift({ id: Date.now(), author: s.username, text: text.trim(), ts: Date.now(), likes: [], comments: [] });
     _saveMoments(moments);
     addLog('moment', '用户 ' + s.username + ' 发布了一条动态');
-    addPoints(s.username, 3, '发布动态');
-    if (window.markTaskDone) window.markTaskDone('moment');
-    if (window.checkAchievements) window.checkAchievements();
     renderMomentFeed();
     renderMyMoments();
     var ta = document.getElementById('momentInput');
     if (ta) ta.value = '';
     var ta2 = document.getElementById('homeMomentInput');
     if (ta2) ta2.value = '';
-    showToast('动态已发布，积分 +3', 'success');
+    showToast('动态已发布', 'success');
 }
 function deleteMoment(id) {
     var s = getSession();
@@ -3448,11 +3272,6 @@ function getPublicProfile(username) {
     var users = getUsers();
     var u = findUserByUsername(users, username);
     if (!u) return null;
-    var g = getGrowth(username);
-    var info = g ? growthLevel(g.points || 0) : growthLevel(0);
-    var unlocked = _getAchievements(username);
-    var achList = [];
-    ACHIEVEMENTS.forEach(function (a) { if (unlocked[a.id]) achList.push(a); });
     var moments = _getMomentsBy(username).slice(0, 20);
     var albums = getSiteAlbums().filter(function (al) { return al.owner === username; }).slice(0, 6);
     return {
@@ -3460,14 +3279,9 @@ function getPublicProfile(username) {
         nickname: u.nickname || username,
         bio: u.bio || '这个人很懒，什么都没写~',
         avatar: u.avatar || '',
-        level: info.level,
-        levelName: info.name,
-        points: g ? g.points : 0,
-        streak: g ? g.streak : 0,
         follows: getFollowCounts(username).follows,
         fans: getFollowCounts(username).fans,
         friends: _getFriendList(username).length,
-        achievements: achList,
         moments: moments,
         albums: albums
     };
@@ -3483,14 +3297,6 @@ function renderProfileView(username) {
     var s = getSession();
     var me = s ? s.username : '';
     var isMe = me === username;
-    var achHtml = '';
-    if (data.achievements.length) {
-        data.achievements.slice(0, 12).forEach(function (a) {
-            achHtml += '<span class="pv-ach" title="' + escapeHtml(a.desc) + '">' + a.icon + ' ' + escapeHtml(a.name) + '</span>';
-        });
-    } else {
-        achHtml = '<span class="pv-none">暂无徽章</span>';
-    }
     var albumHtml = '';
     if (data.albums.length) {
         data.albums.forEach(function (al) {
@@ -3510,14 +3316,12 @@ function renderProfileView(username) {
         (data.avatar ? '<img class="pv-avatar" src="' + escapeHtml(data.avatar) + '" alt="">' : '<div class="pv-avatar pv-avatar-text"><span>' + escapeHtml(data.nickname.charAt(0)) + '</span></div>') +
         '<div class="pv-userinfo"><h2>' + escapeHtml(data.nickname) + '</h2>' +
         '<p class="pv-bio">' + escapeHtml(data.bio) + '</p>' +
-        '<p class="pv-tags">Lv.' + data.level + ' ' + escapeHtml(data.levelName) + ' · 积分 ' + data.points + ' · 连续签到 ' + data.streak + ' 天</p>' +
         '<div class="pv-stats"><span>关注 ' + data.follows + '</span><span>粉丝 ' + data.fans + '</span><span>好友 ' + data.friends + '</span></div></div>' +
         '<div class="pv-actions">' +
         (isMe ? '' : '<button class="btn btn-primary btn-sm" onclick="window.toggleFollow(\'' + username + '\');window.renderProfileView(\'' + username + '\')">' + (isFollowing(me, username) ? '已关注' : '关注') + '</button> ') +
         (isMe ? '' : (_getFriendList(me).indexOf(username) !== -1 ? '<button class="btn btn-secondary btn-sm" disabled>已是好友</button> ' : '<button class="btn btn-primary btn-sm" onclick="window.sendFriendRequest(\'' + username + '\');window.renderProfileView(\'' + username + '\')">加好友</button> ')) +
         (isMe ? '' : '<button class="btn btn-secondary btn-sm" onclick="dataStore.set(\'siteChatOpenWith\',\'' + username + '\');window.location.href=\'profile.html#friends\'">私信</button>') +
         '</div></div>' +
-        '<div class="pv-section"><h3>🏅 徽章墙</h3><div class="pv-ach-grid">' + achHtml + '</div></div>' +
         '<div class="pv-section"><h3>📷 相册</h3><div class="pv-album-grid">' + albumHtml + '</div></div>' +
         '<div class="pv-section"><h3>📣 动态</h3><div class="pv-moments">' + momentHtml + '</div></div>';
 }
@@ -3595,11 +3399,6 @@ window.renderReadLaterList = renderReadLaterList;
 window.renderFavoritesEx = renderFavoritesEx;
 window.removeFavoriteContent = removeFavoriteContent;
 window.renderTrackPanel = renderTrackPanel;
-window.renderSigninCalendar = renderSigninCalendar;
-window.renderGrowthExPanel = renderGrowthExPanel;
-window.checkAchievements = checkAchievements;
-window.renderAchievements = renderAchievements;
-window.renderGrowthPanelAll = renderGrowthPanelAll;
 window.toggleFollow = toggleFollow;
 window.isFollowing = isFollowing;
 window.getFollowCounts = getFollowCounts;
@@ -3621,6 +3420,9 @@ window.initPwaEnhance = initPwaEnhance;
 
 // ========== 管理后台（admin.html）==========
 var isAdminPage = document.body && document.body.classList && document.body.classList.contains('admin-page');
+// IIFE 外部代码（如前台站点配置应用）需要判断当前页类型，必须经 window 暴露，
+// 否则外层裸引用会抛 ReferenceError 并中断整个脚本后续执行（含管理后台函数挂载）
+window.isAdminPage = isAdminPage;
 // 暴露 admin 渲染函数与数据工具函数（必须在 admin 初始化分支之前执行：
 // initAdminPage → renderUsersTable/loadDashboardStats 会立即调用 getUsers()，
 // 若暴露晚于初始化，首次渲染必然 ReferenceError 中断）
@@ -3659,18 +3461,15 @@ window.getContents = getContents;
 window.saveContents = saveContents;
 window.getInteractions = getInteractions;
 window.saveInteractions = saveInteractions;
+// 墓碑读写函数定义在 dataStore 闭包内，此作用域不可裸调用，必须经 dataStore 暴露对象挂载
+window.getDeletedUsers = dataStore.getDeletedUsers;
+window.saveDeletedUsers = dataStore.saveDeletedUsers;
+window.getFavorites = getFavorites;
+window.saveFavorites = saveFavorites;
 window.getGuestbook = getGuestbook;
 window.saveGuestbook = saveGuestbook;
 window.getVisitLog = getVisitLog;
 window.saveVisitLog = saveVisitLog;
-window.getGrowth = getGrowth;
-window.saveGrowth = saveGrowth;
-window.growthLevel = growthLevel;
-window.recordPointFlow = recordPointFlow;
-window.getPointLog = getPointLog;
-window.getInventory = getInventory;
-window.saveInventory = saveInventory;
-window.ensureInventory = ensureInventory;
 window.startOfWeek = startOfWeek;
 window.startOfMonth = startOfMonth;
 window.parseLogTime = parseLogTime;
@@ -3989,7 +3788,7 @@ function switchTab(tabName) {
     }
 
     // 更新标题
-    var titles = { dashboard: '数据统计', users: '用户管理', content: '内容管理', announcements: '公告管理', feedback: '反馈管理', files: '文件管理', messages: '消息通知', settings: '系统设置', loginSettings: '登录设置', logs: '操作日志', albums: '相册管理', polls: '投票管理', guestbook: '留言管理', points: '积分管理' };
+    var titles = { dashboard: '数据统计', users: '用户管理', content: '内容管理', announcements: '公告管理', feedback: '反馈管理', files: '文件管理', messages: '消息通知', settings: '系统设置', loginSettings: '登录设置', logs: '操作日志', albums: '相册管理', polls: '投票管理', guestbook: '留言管理', posts: '帖子管理', autoBackup: '自动备份', adminPerms: '管理员权限' };
     document.getElementById('pageTitle').textContent = titles[tabName] || '';
 
     // 手机端工具栏标题同步
@@ -4010,7 +3809,6 @@ function switchTab(tabName) {
     if (tabName === 'messages') renderMessagesTable();
     if (tabName === 'albums') renderAlbumsAdmin();
     if (tabName === 'polls') renderPollsAdmin();
-    if (tabName === 'points') renderPointsAdmin();
     if (tabName === 'logs') renderLogs();
 }
 
@@ -4280,9 +4078,9 @@ window.deleteSelectedUsers = function () {
 // ========== 一键删除所有用户数据（仅保留超级管理员 admin） ==========
 // 删除前备份：将被删用户的资料与其全部关联数据打包为 JSON 下载，供误删后恢复参考
 window.backupWipeData = function (names) {
-    var USER_KEY_PREFIXES = ['sitePointFlow_', 'siteInventory_', 'siteGrowth_', 'userActivity_',
+    var USER_KEY_PREFIXES = ['userActivity_',
         'userDevices_', 'userFavorites_', 'siteDiary_', 'siteNotes_', 'siteReadLater_',
-        'siteFollows_', 'siteSigninDates_', 'siteAchievements_', 'siteHistory_', 'taskCenter_'];
+        'siteFollows_', 'siteHistory_'];
     var wrap = {
         backupAt: new Date().toLocaleString('zh-CN'),
         backupType: 'wipe-users-before-delete',
@@ -4317,6 +4115,13 @@ window.backupWipeData = function (names) {
 };
 
 window.adminWipeAllUsers = function () {
+    // 本函数位于 IIFE 外，需引用 IIFE 内工具；经 window 暴露后建立局部别名，防止 ReferenceError 中断删除流程
+    var getDeletedUsers = window.getDeletedUsers;
+    var saveDeletedUsers = window.saveDeletedUsers;
+    var getInteractions = window.getInteractions;
+    var saveInteractions = window.saveInteractions;
+    var getFavorites = window.getFavorites;
+    var saveFavorites = window.saveFavorites;
     var session = getSession();
     if (!session || session.role !== 'super_admin') {
         showToast('仅超级管理员可执行此操作', 'error');
@@ -4341,15 +4146,15 @@ window.adminWipeAllUsers = function () {
     }
     var names = [];
     for (var d = 0; d < del.length; d++) names.push(del[d].username);
-    if (!confirm('确定一键删除所有普通用户数据？\n\n即将删除 ' + names.length + ' 个用户及其全部关联云端数据（积分明细、库存、成长记录、动态、任务、收藏等）：\n' + names.join('、') + '\n\n仅保留超级管理员 admin。\n确认后将先自动下载一份「被删用户数据备份」再执行删除，此操作不可恢复！')) return;
+    if (!confirm('确定一键删除所有普通用户数据？\n\n即将删除 ' + names.length + ' 个用户及其全部关联云端数据（动态、日记、收藏、足迹、设备记录等）：\n' + names.join('、') + '\n\n仅保留超级管理员 admin。\n确认后将先自动下载一份「被删用户数据备份」再执行删除，此操作不可恢复！')) return;
 
     // 删除前自动备份：打包被删用户资料与关联数据并下载，供误删后恢复参考
     var backupFile = window.backupWipeData(names);
 
     var CLOUD_URL = '/.netlify/functions/data';
-    var USER_KEY_PREFIXES = ['sitePointFlow_', 'siteInventory_', 'siteGrowth_', 'userActivity_',
+    var USER_KEY_PREFIXES = ['userActivity_',
         'userDevices_', 'userFavorites_', 'siteDiary_', 'siteNotes_', 'siteReadLater_',
-        'siteFollows_', 'siteSigninDates_', 'siteAchievements_', 'siteHistory_', 'taskCenter_'];
+        'siteFollows_', 'siteHistory_'];
     var queue = [];
     names.forEach(function (name) {
         USER_KEY_PREFIXES.forEach(function (prefix) { queue.push(prefix + name); });
@@ -4410,9 +4215,12 @@ window.adminWipeAllUsers = function () {
                 }
                 addLog('wipe_contents', '清理被删用户发布的内容与互动数据（' + names.length + ' 人）');
             }
-            // 关联键已全部清理：写墓碑 + 写回仅含 admin 的 users（云端与本地同步）
+            // 关联键已全部清理：墓碑本地 + 云端原子写 + 写回仅含 admin 的 users
+            // （saveDeletedUsers 内部 writeLocal + pushCloud：本地墓碑立即生效，防止本机刷新/重启时
+            //  云端 users 残留被 mergeUsersWithCloud 补传复活；云端墓碑防止其他设备复活）
+            var tombRes = saveDeletedUsers(deleted);
             Promise.all([
-                postCloud('siteDeletedUsers', deleted),
+                tombRes,
                 saveUsers(keep)
             ]).then(function (res) {
                 if (!res[0] || !res[0].ok) throw new Error('siteDeletedUsers cloud write fail');
@@ -4454,16 +4262,7 @@ window.exportSiteData = function () {
         settings: JSON.parse(dataStore.get('siteSettings') || '{}'),
         guestbook: getGuestbook(),
         feedbacks: window.getFeedbacks(),
-        visitLog: getVisitLog(),
-        growth: (function () {
-            var map = {};
-            var users = getUsers();
-            for (var i = 0; i < users.length; i++) {
-                var g = getGrowth(users[i].username);
-                if (g) map[users[i].username] = g;
-            }
-            return map;
-        })()
+        visitLog: getVisitLog()
     };
     var blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json;charset=utf-8;' });
     var link = document.createElement('a');
@@ -4509,13 +4308,6 @@ window.doImportSiteData = function () {
         if (data.guestbook) dataStore.set('siteGuestbook', JSON.stringify(data.guestbook));
         if (data.feedbacks) dataStore.set('siteFeedbacks', JSON.stringify(data.feedbacks));
         if (data.visitLog) dataStore.set('siteVisitLog', JSON.stringify(data.visitLog));
-        if (data.growth) {
-            for (var name in data.growth) {
-                if (Object.prototype.hasOwnProperty.call(data.growth, name)) {
-                    dataStore.set('siteGrowth_' + name, JSON.stringify(data.growth[name]));
-                }
-            }
-        }
         dataStore.remove('currentUser');
         showToast('恢复成功，请重新登录', 'success');
         setTimeout(function () { location.href = 'login.html'; }, 900);
@@ -4588,7 +4380,7 @@ window.createAdmin = function () {
     var nickname = document.getElementById('adminNickname').value.trim();
 
     if (!username) { alert('请输入管理员用户名'); return; }
-    if (username.length > 6) { alert('用户名最多6个字符'); return; }
+    if (unameCharLen(username) > 6) { alert('用户名最多 6 个字符（中文按 1 个字符计）'); return; }
     if (/^1[3-9]\d{9}$/.test(username)) { alert('用户名不能使用手机号格式'); return; }
     if (/^[\w.-]+@[\w-]+(\.[\w-]+)+$/.test(username)) { alert('用户名不能使用邮箱格式'); return; }
     var strength = checkPasswordStrength(password);
@@ -5457,511 +5249,10 @@ function renderLogs() {
     tbody.innerHTML = html;
 }
 
-// ========== 管理后台 - 积分管理 ==========
-// IIFE 外的全局模块需引用 IIFE 内工具，此处建立顶层别名（暴露语句已先于本段执行）
 var getUsers = window.getUsers;
 var saveUsers = window.saveUsers;
 var getSession = window.getSession;
 var addLog = window.addLog;
-var getGrowth = window.getGrowth;
-var saveGrowth = window.saveGrowth;
-var growthLevel = window.growthLevel;
-function renderPointsAdmin() {
-    var wrap = document.getElementById('pointsAdminWrap');
-    if (!wrap) return;
-    var users = getUsers();
-    var rows = [];
-    for (var i = 0; i < users.length; i++) {
-        var u = users[i];
-        if (!u || !u.username) continue;
-        var growth = getGrowth(u.username);
-        var logs = getPointLog(u.username);
-        rows.push({
-            username: u.username,
-            nickname: u.nickname || u.username,
-            points: (growth.points || 0),
-            level: growthLevel((growth.points || 0)).name,
-            streak: growth.streak || 0,
-            logCount: logs.length
-        });
-    }
-    rows.sort(function (a, b) { return b.points - a.points; });
-    var html = '<div class="points-admin-toolbar">' +
-        '<button class="btn btn-primary btn-sm" onclick="window.adminAdjustAllUsers()">一键给全站用户发放积分</button>' +
-        '<span class="points-admin-hint">发放后自动写入积分流水并留痕操作日志</span></div>';
-    html += '<table class="admin-table"><thead><tr><th>用户</th><th>等级</th><th>当前积分</th><th>连续签到</th><th>流水条数</th><th>操作</th></tr></thead><tbody>';
-    for (var r = 0; r < rows.length; r++) {
-        var row = rows[r];
-        html += '<tr><td>' + escHtml(row.nickname) + '（' + escHtml(row.username) + '）</td><td>' + escHtml(row.level) + '</td><td><b>' + row.points + '</b></td><td>' + row.streak + '</td><td>' + row.logCount + '</td>' +
-            '<td><button class="btn btn-secondary btn-xs" onclick="window.adminAdjustPoints(\'' + encodeURIComponent(row.username) + '\')">调整积分</button> ' +
-            '<button class="btn btn-secondary btn-xs" onclick="window.adminViewPointLog(\'' + encodeURIComponent(row.username) + '\')">查看流水</button></td></tr>';
-    }
-    html += '</tbody></table>';
-    wrap.innerHTML = html;
-}
-
-window.adminAdjustPoints = function (encUsername) {
-    var username = decodeURIComponent(encUsername || '');
-    if (!username) return;
-    var user = getFullUserByName(username);
-    if (!user) { alert('用户不存在'); return; }
-    var cur = (getGrowth(username).points || 0);
-    var delta = prompt('请输入积分调整值（正数增加，负数扣减），' + username + ' 当前积分：' + cur, '10');
-    if (delta === null) return;
-    delta = parseInt(delta, 10);
-    if (isNaN(delta) || delta === 0) { alert('请输入非零整数'); return; }
-    if (delta < -500 || delta > 500) { alert('单次调整范围 -500 ~ 500'); return; }
-    recordPointFlow(username, delta, '管理员手动调整');
-    addLog('adjust_points', '管理员调整用户 ' + username + ' 积分 ' + (delta > 0 ? '+' : '') + delta + '（' + (user.nickname || user.username) + '）');
-    renderPointsAdmin();
-    alert('已调整 ' + username + ' 积分 ' + (delta > 0 ? '+' : '') + delta + '，当前 ' + (getGrowth(username).points || 0));
-};
-
-window.adminViewPointLog = function (encUsername) {
-    var username = decodeURIComponent(encUsername || '');
-    if (!username) return;
-    var logs = getPointLog(username);
-    if (!logs.length) { alert('该用户暂无积分流水'); return; }
-    var lines = logs.slice(0, 20).map(function (l) {
-        return l.time + '  ' + (l.delta >= 0 ? '+' : '') + l.delta + '  ' + l.reason;
-    });
-    alert('用户 ' + username + ' 最近积分流水（共 ' + logs.length + ' 条）：\n' + lines.join('\n'));
-};
-
-window.adminAdjustAllUsers = function () {
-    var users = getUsers();
-    if (!users.length) { alert('暂无用户'); return; }
-    var session = getSession();
-    var delta = parseInt(prompt('给全站 ' + users.length + ' 位用户统一发放积分（输入正数，默认 10）：', '10'), 10);
-    if (isNaN(delta) || delta === 0) { alert('操作已取消'); return; }
-    if (delta < -100 || delta > 100) { alert('单次全站调整范围 -100 ~ 100'); return; }
-    var count = 0;
-    for (var i = 0; i < users.length; i++) {
-        var username = users[i].username;
-        if (!username) continue;
-        if (session && username === session.username) continue;
-        recordPointFlow(username, delta, '管理员全站发放');
-        count++;
-    }
-    addLog('adjust_points_all', '管理员向全站 ' + count + ' 位用户发放积分 ' + (delta > 0 ? '+' : '') + delta);
-    renderPointsAdmin();
-    alert('已向全站 ' + count + ' 位用户发放积分 ' + (delta > 0 ? '+' : '') + delta);
-};
-
-// 前台各页面加载时自动应用站点配置（登录页/注册页/帮助/关于/隐私等均引用本文件）
-if (!isAdminPage && typeof applySiteSettings === 'function') {
-    applySiteSettings();
-}
-
-// ================================================================
-// 全局增强模块（IIFE 外部追加）：
-// 1. 积分任务中心（每日任务 + 积分流水 + 积分商城）
-// 2. 相册画廊（个人相册 + 瀑布流 + 后台相册管理）
-// 3. 投票问卷（创建/参与/统计 + 后台管理）
-// 4. 个人装扮（签名/头像框/主题色，全站生效）
-// 5. 评论互动增强（详情视图/回复/点赞实时更新/互动通知）
-// ================================================================
-
-// ---------- 通用工具 ----------
-function getPointLog(username) {
-    try { return JSON.parse(dataStore.get('sitePointFlow_' + username) || '[]'); } catch (e) { return []; }
-}
-function recordPointFlow(username, delta, reason) {
-    if (!username || !delta) return;
-    // 与 IIFE 内语义一致：同时更新成长积分 + 写流水 + 留痕
-    var growth = getGrowth(username);
-    growth.points = (growth.points || 0) + delta;
-    saveGrowth(username, growth);
-    var logs = getPointLog(username);
-    logs.unshift({ time: nowTextStr(), ts: Date.now(), delta: delta, reason: reason || '', balance: growth.points });
-    if (logs.length > 500) logs.length = 500;
-    dataStore.set('sitePointFlow_' + username, JSON.stringify(logs));
-    addLog('points', '用户 ' + username + ' 积分 ' + (delta >= 0 ? '+' : '') + delta + (reason ? '（' + reason + '）' : ''));
-}
-function getInventory(username) {
-    try { return JSON.parse(dataStore.get('siteInventory_' + username) || '{}'); } catch (e) { return {}; }
-}
-function saveInventory(username, inv) {
-    dataStore.set('siteInventory_' + username, JSON.stringify(inv || {}));
-}
-function ensureInventory(username) {
-    var inv = getInventory(username);
-    if (!inv || typeof inv !== 'object') inv = {};
-    return inv;
-}
-function startOfWeek(d) {
-    var day = (d.getDay() + 6) % 7;
-    var s = new Date(d.getFullYear(), d.getMonth(), d.getDate() - day);
-    return s;
-}
-function startOfMonth(d) {
-    return new Date(d.getFullYear(), d.getMonth(), 1);
-}
-function escHtml(str) {
-    if (str == null) return '';
-    var div = document.createElement('div');
-    div.appendChild(document.createTextNode(String(str)));
-    return div.innerHTML;
-}
-function todayKeyStr() {
-    var d = new Date();
-    return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate();
-}
-function nowTextStr() {
-    var d = new Date();
-    return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate() + ' ' + d.getHours() + ':' + d.getMinutes();
-}
-function getFullUserByName(username) {
-    var users = window.getUsers();
-    for (var i = 0; i < users.length; i++) {
-        if (users[i].username === username) return users[i];
-    }
-    return null;
-}
-function modalOpen(id) {
-    var el = document.getElementById(id);
-    if (el) { el.style.display = 'flex'; el.classList.add('modal-in'); }
-}
-function modalClose(id) {
-    var el = document.getElementById(id);
-    if (el) el.style.display = 'none';
-}
-function bindModalClosers(id) {
-    var el = document.getElementById(id);
-    if (!el) return;
-    var closes = el.querySelectorAll('.modal-close');
-    for (var i = 0; i < closes.length; i++) {
-        closes[i].addEventListener('click', function () { el.style.display = 'none'; });
-    }
-    el.addEventListener('click', function (e) { if (e.target === el) el.style.display = 'none'; });
-}
-
-// ==================== 1. 积分任务中心 ====================
-var TASK_DEFS = [
-    { id: 'signin', name: '每日签到', desc: '点击个人中心签到按钮完成签到', pts: 5, icon: '签' },
-    { id: 'guestbook', name: '发布留言', desc: '在首页留言板发布一条留言', pts: 3, icon: '留' },
-    { id: 'moment', name: '发布动态', desc: '发布一条个人动态', pts: 3, icon: '动' },
-    { id: 'comment', name: '发表评论', desc: '为一条内容发表评论', pts: 3, icon: '评' },
-    { id: 'like', name: '点赞内容', desc: '为一条内容点赞', pts: 2, icon: '赞' },
-    { id: 'browse', name: '浏览内容', desc: '打开一条内容详情进行浏览', pts: 1, icon: '览' },
-    { id: 'be_liked', name: '被点赞', desc: '自己的内容被他人点赞', pts: 2, icon: '赞' },
-    { id: 'be_commented', name: '被评论', desc: '自己的内容被他人评论', pts: 2, icon: '评' }
-];
-var SHOP_ITEMS = [
-    { id: 'badge_bronze', name: '铜质徽章', desc: '个人资料展示铜徽章', price: 150, type: 'badge', value: 'bronze', icon: '铜' },
-    { id: 'badge_silver', name: '银质徽章', desc: '个人资料展示银徽章', price: 300, type: 'badge', value: 'silver', icon: '银' },
-    { id: 'badge_gold', name: '金质徽章', desc: '个人资料展示金徽章', price: 500, type: 'badge', value: 'gold', icon: '金' },
-    { id: 'title_signer', name: '称号：签到狂魔', desc: '首页横幅展示专属称号', price: 400, type: 'title', value: '签到狂魔', icon: '签' },
-    { id: 'title_star', name: '称号：互动之星', desc: '首页横幅展示专属称号', price: 600, type: 'title', value: '互动之星', icon: '星' },
-    { id: 'title_expert', name: '称号：内容达人', desc: '首页横幅展示专属称号', price: 800, type: 'title', value: '内容达人', icon: '达' },
-    { id: 'title_royal', name: '称号：至尊王者', desc: '全站最高荣誉称号', price: 1200, type: 'title', value: '至尊王者', icon: '王' },
-    { id: 'frame_silver', name: '头像框：银色边框', desc: '头像外环绕银色边框', price: 250, type: 'frame', value: 'silver', icon: '银' },
-    { id: 'frame_gold', name: '头像框：金色光环', desc: '头像外环绕金色光环', price: 450, type: 'frame', value: 'gold', icon: '金' },
-    { id: 'frame_rainbow', name: '头像框：彩虹渐变', desc: '头像外环绕彩虹渐变', price: 700, type: 'frame', value: 'rainbow', icon: '彩' },
-    { id: 'frame_star', name: '头像框：星光闪耀', desc: '头像外环绕星光闪耀', price: 900, type: 'frame', value: 'star', icon: '星' }
-];
-
-function getTaskData(username) {
-    try { return JSON.parse(dataStore.get('taskCenter_' + username) || 'null'); } catch (e) { return null; }
-}
-function saveTaskData(username, data) {
-    dataStore.set('taskCenter_' + username, JSON.stringify(data));
-}
-function ensureTaskData(username) {
-    var data = getTaskData(username);
-    var key = todayKeyStr();
-    if (!data || data.date !== key) {
-        data = { date: key, tasks: {}, logs: [], redeemed: [] };
-        for (var i = 0; i < TASK_DEFS.length; i++) {
-            data.tasks[TASK_DEFS[i].id] = { done: 0, claimed: 0 };
-        }
-        saveTaskData(username, data);
-    }
-    return data;
-}
-function logTaskPoints(username, pts, desc) {
-    if (!username || !pts) return;
-    recordPointFlow(username, pts, desc);
-    var data = ensureTaskData(username);
-    data.logs.unshift({ time: nowTextStr(), action: desc, pts: pts });
-    if (data.logs.length > 200) data.logs.length = 200;
-    saveTaskData(username, data);
-    window.addLog('points', '用户 ' + username + ' 积分 ' + (pts >= 0 ? '+' : '') + pts + '（' + desc + '）');
-}
-
-window.markTaskDone = function (taskId) {
-    var session = window.getSession();
-    if (!session || !session.username) return;
-    markTaskDoneInternal(taskId, session.username);
-    if (document.getElementById('taskCenterPanel')) window.renderTaskCenter();
-};
-
-window.markTaskDoneFor = function (username, taskId) {
-    if (!username) return;
-    markTaskDoneInternal(taskId, username);
-    var session = window.getSession();
-    if (document.getElementById('taskCenterPanel') && session && session.username === username) window.renderTaskCenter();
-};
-
-function markTaskDoneInternal(taskId, username) {
-    if (!username) return;
-    var data = ensureTaskData(username);
-    if (data.tasks[taskId]) data.tasks[taskId].done = 1;
-    saveTaskData(username, data);
-    // 被点赞/被评论类任务无需操作即自动完成
-    if (taskId === 'be_liked' || taskId === 'be_commented') {
-        var def = null;
-        for (var i = 0; i < TASK_DEFS.length; i++) { if (TASK_DEFS[i].id === taskId) def = TASK_DEFS[i]; }
-        if (def && data.tasks[taskId] && !data.tasks[taskId].claimed) {
-            data.tasks[taskId].claimed = 1;
-            saveTaskData(username, data);
-            logTaskPoints(username, def.pts, '完成任务：' + def.name);
-        }
-    }
-}
-
-window.claimTask = function (taskId) {
-    var session = window.getSession();
-    if (!session || !session.username) { alert('请先登录'); return; }
-    var data = ensureTaskData(session.username);
-    var task = data.tasks[taskId];
-    var def = null;
-    for (var i = 0; i < TASK_DEFS.length; i++) { if (TASK_DEFS[i].id === taskId) def = TASK_DEFS[i]; }
-    if (!def) return;
-    if (!task || !task.done) { alert('任务尚未完成，先去完成「' + def.name + '」吧'); return; }
-    if (task.claimed) { alert('该任务积分已领取'); return; }
-    task.claimed = 1;
-    saveTaskData(session.username, data);
-    logTaskPoints(session.username, def.pts, '完成任务：' + def.name);
-    window.renderTaskCenter();
-    if (window.showToast) window.showToast('领取成功，积分 +' + def.pts, 'success');
-    else alert('领取成功，积分 +' + def.pts);
-};
-
-window.renderTaskCenter = function () {
-    var panel = document.getElementById('taskCenterPanel');
-    if (!panel) return;
-    var session = window.getSession();
-    if (!session || !session.username) { panel.innerHTML = '<p class="empty-tip">请先登录</p>'; return; }
-    var data = ensureTaskData(session.username);
-    var html = '<div class="task-grid">';
-    for (var i = 0; i < TASK_DEFS.length; i++) {
-        var def = TASK_DEFS[i];
-        var t = data.tasks[def.id];
-        var stateCls = '', btnHtml = '', stateText = '';
-        if (t.claimed) { stateCls = 'task-done'; btnHtml = '<span class="task-claimed">已领取</span>'; }
-        else if (t.done) { stateCls = 'task-ready'; stateText = '今日已完成，点击领取积分'; btnHtml = '<button class="btn btn-primary btn-xs" onclick="window.claimTask(\'' + def.id + '\')">领取 +' + def.pts + '</button>'; }
-        else { stateCls = 'task-todo'; btnHtml = '<span class="task-todo-tip">未完成</span>'; }
-        html += '<div class="task-card ' + stateCls + '"><div class="task-icon">' + def.icon + '</div>' +
-            '<div class="task-info"><div class="task-name">' + escHtml(def.name) + '</div>' +
-            '<div class="task-desc">' + escHtml(def.desc) + '</div></div>' +
-            '<div class="task-reward">+' + def.pts + ' 积分</div>' +
-            '<div class="task-state">' + (stateText ? '<div class="task-state-tip" style="font-size:12px;color:#8a94b0;margin-bottom:4px;">' + stateText + '</div>' : '') + btnHtml + '</div></div>';
-    }
-    html += '</div>';
-
-    // 积分流水
-    var logs = data.logs || [];
-    html += '<div class="task-section-title">积分流水</div>';
-    if (!logs.length) html += '<p class="empty-tip">暂无积分流水</p>';
-    else {
-        html += '<table class="point-log-table"><thead><tr><th>时间</th><th>来源</th><th>积分</th></tr></thead><tbody>';
-        for (var l = 0; l < Math.min(logs.length, 30); l++) {
-            var lg = logs[l];
-            var lgPts = Number(lg.pts) || 0;
-            html += '<tr><td>' + escHtml(lg.time) + '</td><td>' + escHtml(lg.action) + '</td><td style="color:' + (lgPts >= 0 ? '#38a169' : '#e53e3e') + ';">' + (lgPts >= 0 ? '+' : '') + lgPts + '</td></tr>';
-        }
-        html += '</tbody></table>';
-    }
-
-    // 积分商城（完整版含背包与佩戴/卸下）
-    html += window.renderShopPanel ? window.renderShopPanel(session.username) : '<p class="empty-tip">商城加载失败</p>';
-    panel.innerHTML = html;
-};
-
-window.redeemItem = function (itemId) {
-    var session = window.getSession();
-    if (!session || !session.username) { alert('请先登录'); return; }
-    var item = null;
-    for (var i = 0; i < SHOP_ITEMS.length; i++) { if (SHOP_ITEMS[i].id === itemId) item = SHOP_ITEMS[i]; }
-    if (!item) return;
-    var growth = window.getGrowth(session.username);
-    if ((growth.points || 0) < item.price) { alert('积分不足，需要 ' + item.price + ' 积分'); return; }
-    var inv = getInventory(session.username);
-    if (inv[itemId]) { alert('您已拥有该装扮'); return; }
-    inv[itemId] = { id: itemId, boughtAt: Date.now() };
-    saveInventory(session.username, inv);
-    // recordPointFlow 会统一扣减 growth 积分 + 写流水 + 留痕（避免与 saveGrowth 双重扣分）
-    recordPointFlow(session.username, -item.price, '兑换装扮：' + item.name);
-    var data = ensureTaskData(session.username);
-    data.redeemed.unshift({ time: nowTextStr(), item: item.name, cost: item.price });
-    if (data.redeemed.length > 100) data.redeemed.length = 100;
-    data.logs.unshift({ time: nowTextStr(), action: '兑换：' + item.name, pts: -item.price });
-    saveTaskData(session.username, data);
-    window.addLog('redeem', '用户 ' + session.username + ' 兑换 ' + item.name + '（' + item.price + ' 积分）');
-    equipItem(session.username, item);
-    window.renderTaskCenter();
-    if (document.getElementById('shopPanel')) window.renderShopPanel(session.username);
-    if (document.getElementById('pointLogPanel')) window.renderPointLogPanel(session.username);
-    if (window.applyUserDressing) window.applyUserDressing();
-    alert('兑换成功！' + item.name + ' 已加入背包并自动佩戴');
-};
-
-window.renderShopPanel = function (username) {
-    var session = window.getSession();
-    username = username || (session && session.username);
-    if (!username) return '<p class="empty-tip">请先登录</p>';
-    var growth = window.getGrowth(username);
-    var inv = getInventory(username);
-    var user = getFullUserByName(username);
-    var ownIds = {};
-    for (var k in inv) { if (Object.prototype.hasOwnProperty.call(inv, k)) ownIds[k] = true; }
-    function isEquipped(item) {
-        return user && ((item.type === 'badge' && user.badge === item.value) || (item.type === 'title' && user.title === item.value) || (item.type === 'frame' && user.avatarFrame === item.value));
-    }
-    function itemActions(item) {
-        var owned = !!ownIds[item.id];
-        var equipped = isEquipped(item);
-        if (owned && equipped) return '<span class="shop-owned">佩戴中</span><button class="btn btn-secondary btn-xs" onclick="window.unequipItem(\'' + item.type + '\')">卸下</button>';
-        if (owned) return '<button class="btn btn-primary btn-xs" onclick="window.equipItem(window.getSession().username,{type:\'' + item.type + '\',value:\'' + item.value + '\',name:\'' + item.name + '\'})">佩戴</button>';
-        return '<button class="btn btn-secondary btn-xs" onclick="window.redeemItem(\'' + item.id + '\')">兑换</button>';
-    }
-    var html = '<div class="shop-balance">当前积分：<b>' + (growth.points || 0) + '</b></div>';
-    html += '<div class="shop-section-title">装扮商城</div><div class="shop-grid">';
-    for (var i = 0; i < SHOP_ITEMS.length; i++) {
-        var item = SHOP_ITEMS[i];
-        html += '<div class="shop-item' + (ownIds[item.id] ? ' owned' : '') + '">' +
-            '<div class="shop-item-icon">' + item.icon + '</div>' +
-            '<div class="shop-item-name">' + escHtml(item.name) + '</div>' +
-            '<div class="shop-item-desc">' + escHtml(item.desc) + '</div>' +
-            '<div class="shop-item-price">' + item.price + ' 积分</div>' +
-            '<div class="shop-item-actions">' + itemActions(item) + '</div></div>';
-    }
-    html += '</div>';
-    html += '<div class="shop-section-title">我的背包</div><div class="shop-grid">';
-    var ownedList = SHOP_ITEMS.filter(function (it) { return ownIds[it.id]; });
-    if (!ownedList.length) html += '<p class="empty-tip">背包空空，快去商城兑换装扮吧</p>';
-    else {
-        for (var j = 0; j < ownedList.length; j++) {
-            var oi = ownedList[j];
-            html += '<div class="shop-item' + (isEquipped(oi) ? ' equipped' : '') + '">' +
-                '<div class="shop-item-icon">' + oi.icon + '</div>' +
-                '<div class="shop-item-name">' + escHtml(oi.name) + (isEquipped(oi) ? '（佩戴中）' : '') + '</div>' +
-                '<div class="shop-item-desc">' + escHtml(oi.desc) + '</div>' +
-                '<div class="shop-item-actions">' + itemActions(oi) + '</div></div>';
-        }
-    }
-    html += '</div>';
-    return html;
-};
-
-window.renderPointLogPanel = function (username) {
-    var session = window.getSession();
-    username = username || (session && session.username);
-    if (!username) return '<p class="empty-tip">请先登录</p>';
-    var logs = getPointLog(username);
-    var html = '<div class="task-section-title">积分明细</div>';
-    if (!logs.length) html += '<p class="empty-tip">暂无积分流水，快去赚积分吧</p>';
-    else {
-        var sumPos = 0, sumNeg = 0;
-        for (var li = 0; li < logs.length; li++) { var lv = Number(logs[li].delta) || 0; if (lv > 0) sumPos += lv; else sumNeg += lv; }
-        html += '<p style="font-size:12px;color:#8a94b0;margin:6px 0 10px;">累计收入 <b style="color:#38a169;">+' + sumPos + '</b> ｜ 支出 <b style="color:#e53e3e;">' + sumNeg + '</b> ｜ 当前结余 <b>' + (sumPos + sumNeg) + '</b></p>';
-        html += '<table class="point-log-table"><thead><tr><th>时间</th><th>原因</th><th>积分</th></tr></thead><tbody>';
-        for (var i = 0; i < Math.min(logs.length, 100); i++) {
-            var lg = logs[i];
-            html += '<tr><td>' + escHtml(lg.time) + '</td><td>' + escHtml(lg.reason || '') + '</td><td style="color:' + (lg.delta >= 0 ? '#38a169' : '#e53e3e') + ';">' + (lg.delta >= 0 ? '+' : '') + lg.delta + '</td></tr>';
-        }
-        html += '</tbody></table>';
-    }
-    return html;
-};
-
-window.renderPointsRank = function (scope) {
-    var users = window.getUsers();
-    var rows = [];
-    var weekStart = startOfWeek(new Date());
-    var monthStart = startOfMonth(new Date());
-    var meName = (window.getSession() || {}).username || '';
-    for (var i = 0; i < users.length; i++) {
-        var u = users[i];
-        if (!u || !u.username) continue;
-        var pts = 0;
-        if (scope === 'week') {
-            var wl = getPointLog(u.username).filter(function (l) { return l.ts >= weekStart; });
-            for (var w = 0; w < wl.length; w++) pts += wl[w].delta;
-        } else if (scope === 'month') {
-            var ml = getPointLog(u.username).filter(function (l) { return l.ts >= monthStart; });
-            for (var m = 0; m < ml.length; m++) pts += ml[m].delta;
-        } else {
-            pts = ((window.getGrowth(u.username) || {}).points) || 0;
-        }
-        rows.push({ name: u.nickname || u.username, username: u.username, pts: pts });
-    }
-    rows.sort(function (a, b) { return b.pts - a.pts; });
-    var html = '<div class="rank-switch">' +
-        '<button class="btn btn-xs ' + (!scope || scope === 'total' ? 'btn-primary' : 'btn-secondary') + '" onclick="window.renderPointsRank(\'total\')">总榜</button> ' +
-        '<button class="btn btn-xs ' + (scope === 'week' ? 'btn-primary' : 'btn-secondary') + '" onclick="window.renderPointsRank(\'week\')">周榜</button> ' +
-        '<button class="btn btn-xs ' + (scope === 'month' ? 'btn-primary' : 'btn-secondary') + '" onclick="window.renderPointsRank(\'month\')">月榜</button></div>';
-    // 并列名次：同分同名次
-    var topN = Math.min(rows.length, 50);
-    var rankNo = [];
-    var lastPts = null, lastRank = 0;
-    for (var r = 0; r < topN; r++) {
-        if (rows[r].pts !== lastPts) { lastRank = r + 1; lastPts = rows[r].pts; }
-        rankNo.push(lastRank);
-    }
-    html += '<ol class="rank-list">';
-    for (var r2 = 0; r2 < topN; r2++) {
-        var rank = rankNo[r2];
-        var medal = rank === 1 ? '🥇' : (rank === 2 ? '🥈' : (rank === 3 ? '🥉' : rank));
-        html += '<li class="rank-item' + (rows[r2].username === meName ? ' mine' : '') + '"><span class="rank-no">' + medal + '</span>' +
-            '<span class="rank-name">' + escHtml(rows[r2].name) + '</span><span class="rank-value">' + rows[r2].pts + ' 分</span></li>';
-    }
-    html += '</ol>';
-    var meIdx = -1;
-    var meRank = 0;
-    for (var mi = 0; mi < rows.length; mi++) { if (rows[mi].username === meName) { meIdx = mi; meRank = mi < topN ? rankNo[mi] : -1; break; } }
-    html += '<div class="my-rank">' + (topN ? '上榜 ' + topN + ' 人 ｜ ' : '') + '我的排名：';
-    if (meIdx === -1) html += '未上榜（暂无积分记录）';
-    else html += '第 <b>' + (meRank > 0 ? meRank : meIdx + 1) + '</b> 名（' + rows[meIdx].pts + ' 分）' + (meRank > 0 && meRank <= 3 ? ' 🏆' : '');
-    html += '</div>';
-    var target = document.getElementById('pointsRankList');
-    if (target) { target.innerHTML = html; target.setAttribute('data-scope', scope || 'total'); }
-    return html;
-};
-
-function equipItem(username, item) {
-    if (!username || !item) return;
-    var users = window.getUsers();
-    var user = getFullUserByName(username);
-    if (!user) return;
-    if (item.type === 'frame') user.avatarFrame = item.value;
-    else if (item.type === 'badge') user.badge = item.value;
-    else if (item.type === 'title') user.title = item.value;
-    for (var u = 0; u < users.length; u++) { if (users[u].username === username) users[u] = user; }
-    window.saveUsers(users);
-    window.addLog('equip', '用户 ' + username + ' 佩戴 ' + item.name);
-}
-window.equipItem = equipItem;
-
-window.unequipItem = function (type) {
-    var session = window.getSession();
-    if (!session || !session.username) { alert('请先登录'); return; }
-    var users = window.getUsers();
-    var user = getFullUserByName(session.username);
-    if (!user) return;
-    var typeName = (type === 'frame' ? '头像框' : (type === 'badge' ? '徽章' : '称号'));
-    if (type === 'frame') user.avatarFrame = 'none';
-    else if (type === 'badge') user.badge = '';
-    else if (type === 'title') user.title = '';
-    for (var u = 0; u < users.length; u++) { if (users[u].username === session.username) users[u] = user; }
-    window.saveUsers(users);
-    window.addLog('unequip', '用户 ' + session.username + ' 卸下 ' + typeName);
-    if (window.applyUserDressing) window.applyUserDressing();
-    if (document.getElementById('shopPanel')) window.renderShopPanel(session.username);
-    alert('已卸下' + typeName);
-};
-
 // ==================== 2. 相册画廊 ====================
 function getSiteAlbums() {
     try { return JSON.parse(dataStore.get('siteAlbums') || '[]'); } catch (e) { return []; }
@@ -6305,6 +5596,46 @@ window.deletePoll = function (pollId) {
     alert('投票已删除');
 };
 
+// ---------- 通用工具 ----------
+function escHtml(str) {
+    if (str == null) return '';
+    var div = document.createElement('div');
+    div.appendChild(document.createTextNode(String(str)));
+    return div.innerHTML;
+}
+function todayKeyStr() {
+    var d = new Date();
+    return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate();
+}
+function nowTextStr() {
+    var d = new Date();
+    return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate() + ' ' + d.getHours() + ':' + d.getMinutes();
+}
+function getFullUserByName(username) {
+    var users = window.getUsers();
+    for (var i = 0; i < users.length; i++) {
+        if (users[i].username === username) return users[i];
+    }
+    return null;
+}
+function modalOpen(id) {
+    var el = document.getElementById(id);
+    if (el) { el.style.display = 'flex'; el.classList.add('modal-in'); }
+}
+function modalClose(id) {
+    var el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+}
+function bindModalClosers(id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    var closes = el.querySelectorAll('.modal-close');
+    for (var i = 0; i < closes.length; i++) {
+        closes[i].addEventListener('click', function () { el.style.display = 'none'; });
+    }
+    el.addEventListener('click', function (e) { if (e.target === el) el.style.display = 'none'; });
+}
+
 // ==================== 4. 个人装扮 ====================
 var DRESS_FRAMES = [
     { id: 'none', name: '无边框' },
@@ -6454,7 +5785,6 @@ window.openContentDetail = function (contentId) {
     var session = window.getSession();
     contentId = Number(contentId);
     window._detailContentId = contentId;
-    if (session && session.username && window.markTaskDone) window.markTaskDone('browse');
     var el = document.getElementById('contentDetailModal');
     if (!el) return;
     el.querySelector('.modal-body').innerHTML = '<p class="empty-tip">加载中...</p>';
@@ -6519,7 +5849,6 @@ window.submitDetailComment = function (contentId) {
     if (window._replyTarget) { comment.replyTo = window._replyTarget; }
     map.comments[contentId].push(comment);
     window.saveInteractions(map);
-    if (window.markTaskDone) window.markTaskDone('comment');
     if (window.notifyContentComment) window.notifyContentComment(contentId, text, window._replyTarget);
     window._replyTarget = null;
     window.renderContentDetail(contentId);
@@ -6542,7 +5871,6 @@ window.toggleDetailLike = function (contentId) {
     } else {
         map.likes[contentId] += 1;
         map.likers[contentId].push(session.username);
-        if (window.markTaskDone) window.markTaskDone('like');
         if (window.notifyContentLike) window.notifyContentLike(contentId);
     }
     window.saveInteractions(map);
@@ -6606,7 +5934,6 @@ window.renderNotifyBadge = function () {
                 for (var i = 0; i < contents.length; i++) { if (contents[i].id === Number(contentId)) { item = contents[i]; break; } }
                 window.recordHistory(Number(contentId), item ? item.title : '');
                 if (window.renderTrackPanel) window.renderTrackPanel();
-                if (window.checkAchievements) window.checkAchievements();
             }
             return ret;
         };
@@ -6778,19 +6105,12 @@ window.renderPollsAdmin = function () {
         if (document.getElementById('pollList')) window.renderPollList();
         if (document.getElementById('albumMasonry')) window.renderPublicAlbums();
         if (document.getElementById('notifyBell')) window.renderNotifyBadge();
-        if (document.getElementById('taskCenterPanel')) window.renderTaskCenter();
-        if (document.getElementById('shopPanel')) window.renderShopPanel();
-        if (document.getElementById('pointLogPanel')) window.renderPointLogPanel();
-        if (document.getElementById('pointsRankList')) window.renderPointsRank('total');
-        if (document.getElementById('myAlbumsList')) window.renderMyAlbums();
         if (document.getElementById('myPollsList')) window.renderMyPolls();
         if (document.getElementById('dressingPanel')) window.renderDressing();
         if (document.getElementById('notificationsList')) window.renderNotifications();
         if (document.getElementById('panel-friends')) window.renderFriendsPanel();
         if (document.getElementById('panel-diary')) window.renderDiaryPanelAll();
         if (document.getElementById('panel-track')) window.renderTrackPanel();
-        if (document.getElementById('panel-growth')) window.renderGrowthPanelAll();
-        if (document.getElementById('panel-social')) window.renderSocialPanel();
         if (document.getElementById('momentFeed')) window.renderMomentFeed();
         if (document.getElementById('dailyWordHome')) window.renderDailyWord('dailyWordHome');
         var pvRoot = document.getElementById('profileViewRoot');
@@ -6825,7 +6145,7 @@ window.renderPollsAdmin = function () {
 
         // hash 路由：支持 profile.html#task / #albums / #polls 等直达标签页
         var hashTab = String(location.hash || '').replace('#', '');
-        var allowedTabs = ['personal', 'security', 'task', 'shop', 'points', 'albums', 'polls', 'messages', 'favorites', 'timeline', 'friends', 'diary', 'track', 'growth', 'social'];
+        var allowedTabs = ['personal', 'security', 'albums', 'polls', 'messages', 'favorites', 'timeline', 'friends', 'diary', 'track', 'social'];
         if (allowedTabs.indexOf(hashTab) !== -1) {
             var hashBtn = document.querySelector('.tab-btn[data-tab="' + hashTab + '"]');
             if (hashBtn) hashBtn.click();

@@ -1,1 +1,5 @@
 ﻿temp/
+
+# 依赖与锁文件不纳入提交，避免影响 Netlify 线上构建
+node_modules/
+package-lock.json

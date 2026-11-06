@@ -32,7 +32,6 @@
                 <li><a href="index.html#heroCarousel" class="drawer-link"><span class="drawer-icon">🏠</span>首页</a></li>
                 <li><a href="index.html#momentFeed" class="drawer-link"><span class="drawer-icon">📝</span>动态广场</a></li>
                 <li><a href="index.html#dailyWordHome" class="drawer-link"><span class="drawer-icon">📔</span>日记心情</a></li>
-                <li><a href="index.html#growth" class="drawer-link"><span class="drawer-icon">🌱</span>成长中心</a></li>
                 <li><a href="#panel-personal" class="drawer-link active"><span class="drawer-icon">👤</span>我的资料</a></li>
             </ul>
             <div class="drawer-section-title">功能</div>
@@ -99,13 +98,9 @@
                     <button class="tab-btn" data-tab="diary">日记心情</button>
                 </div>
             </div>
-            <div class="tab-group" data-group="growth">
-                <button class="tab-group-btn" type="button">成长与互动</button>
+            <div class="tab-group" data-group="interact">
+                <button class="tab-group-btn" type="button">互动</button>
                 <div class="tab-submenu">
-                    <button class="tab-btn" data-tab="growth">成长中心</button>
-                    <button class="tab-btn" data-tab="task">任务中心</button>
-                    <button class="tab-btn" data-tab="shop">积分商城</button>
-                    <button class="tab-btn" data-tab="points">排行榜</button>
                     <button class="tab-btn" data-tab="polls">投票问卷</button>
                 </div>
             </div>
@@ -113,29 +108,15 @@
 
         <!-- ========== 个人资料 ========== -->
         <div class="tab-panel active" id="panel-personal">
-            <!-- 成长中心 -->
-            <div class="growth-card" id="growthCard">
-                <div class="growth-level-wrap">
-                    <div class="growth-level-badge" id="growthLevelBadge">Lv.1</div>
-                    <div class="growth-info">
-                        <div class="growth-level-name" id="growthLevelName">新手</div>
-                        <div class="growth-points">积分 <b id="growthPoints">0</b> · 连续签到 <b id="growthStreak">0</b> 天</div>
-                    </div>
-                </div>
-                <div class="growth-actions">
-                    <button class="btn btn-primary btn-sm" id="growthSigninBtn">今日签到 +5</button>
-                    <span class="growth-signin-tip" id="growthSigninTip"></span>
-                </div>
-                <div class="growth-progress">
-                    <div class="growth-progress-track"><div class="growth-progress-fill" id="growthProgressFill" style="width:0%"></div></div>
-                    <span class="growth-progress-text" id="growthProgressText">0 / 100</span>
-                </div>
-            </div>
 
             <form id="profileForm">
                 <div class="form-group">
                     <label for="profileAccountId">账号</label>
-                    <input type="text" id="profileAccountId" readonly disabled placeholder="注册时自动生成的唯一账号ID">
+                    <div class="input-with-btn">
+                        <input type="text" id="profileAccountId" readonly disabled placeholder="注册时自动生成的唯一账号ID">
+                        <button type="button" class="btn btn-ghost btn-sm" id="copyAccountBtn" data-copy-account="">复制账号</button>
+                    </div>
+                    <p class="page-tip">账号由系统自动生成，可用于登录，不支持修改。</p>
                 </div>
                 <div class="form-group">
                     <label for="profileUsername">用户名</label>
@@ -273,37 +254,6 @@
             </section>
         </div>
 
-        <!-- ========== 任务中心 ========== -->
-        <div class="tab-panel" id="panel-task">
-            <section class="security-section">
-                <h3>每日任务</h3>
-                <p class="security-hint">完成任务领取积分，积分可在商城兑换徽章与称号。</p>
-                <div id="taskCenterPanel"></div>
-            </section>
-        </div>
-
-        <!-- ========== 积分商城 ========== -->
-        <div class="tab-panel" id="panel-shop">
-            <section class="security-section">
-                <h3>积分商城</h3>
-                <p class="security-hint">用积分兑换徽章、称号与头像框，兑换后可在下方背包佩戴或卸下。</p>
-                <div id="shopPanel"></div>
-            </section>
-        </div>
-
-        <!-- ========== 积分排行榜 ========== -->
-        <div class="tab-panel" id="panel-points">
-            <section class="security-section">
-                <h3>积分排行榜</h3>
-                <p class="security-hint">支持总榜 / 周榜 / 月榜切换，展示你的实时排名。</p>
-                <div id="pointsRankList"></div>
-            </section>
-            <section class="security-section">
-                <h3>积分明细</h3>
-                <p class="security-hint">记录每一次积分变动的时间、原因与增减。</p>
-                <div id="pointLogPanel"></div>
-            </section>
-        </div>
 
         <!-- ========== 相册画廊 ========== -->
         <div class="tab-panel" id="panel-albums">
@@ -490,24 +440,6 @@
             </section>
         </div>
 
-        <!-- ========== 成长中心 ========== -->
-        <div class="tab-panel" id="panel-growth">
-            <section class="security-section">
-                <h3>等级经验</h3>
-                <div id="growthExPanel"></div>
-            </section>
-            <section class="security-section">
-                <h3>签到日历</h3>
-                <p class="security-hint">每天签到可获得积分，连续签到奖励更多。</p>
-                <div id="signinCalendar" class="signin-calendar"></div>
-                <p id="signinStreakTip" class="security-hint"></p>
-            </section>
-            <section class="security-section">
-                <h3>成就徽章墙</h3>
-                <p id="achievementSummary" class="security-hint"></p>
-                <div id="achievementWall" class="achievement-wall"></div>
-            </section>
-        </div>
 
         <!-- ========== 关注与动态 ========== -->
         <div class="tab-panel" id="panel-social">
@@ -616,10 +548,6 @@
             <span class="bottom-nav-icon">🔔</span>
             <span class="bottom-nav-label">消息</span>
         </a>
-        <a href="index.html#growth" class="bottom-nav-item">
-            <span class="bottom-nav-icon">🌱</span>
-            <span class="bottom-nav-label">成长</span>
-        </a>
         <a href="#top" class="bottom-nav-item active">
             <span class="bottom-nav-icon">👤</span>
             <span class="bottom-nav-label">我的</span>
@@ -638,6 +566,7 @@
     </div>
 
     <script src="auth.js"></script>
+    <script src="enhance.js"></script>
     <script>
     // ===== 统一导航抽屉交互（手机/平板） =====
     (function() {

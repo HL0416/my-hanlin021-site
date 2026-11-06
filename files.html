@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <meta name="theme-color" content="#667eea">
+    <title>文件中心 - 我的站点</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="files-page">
+    <nav class="top-nav top-nav-drawer">
+        <div class="nav-left">
+            <span class="site-brand">我的站点</span>
+        </div>
+        <div class="nav-right">
+            <button id="navToggle" class="nav-toggle" aria-label="菜单">&#9776;</button>
+            <button id="themeToggle" class="btn btn-ghost btn-sm theme-btn">深色模式</button>
+            <a href="index.html" class="btn btn-ghost btn-sm">返回首页</a>
+            <div id="adminLink" style="display:none;">
+                <a href="admin.html" class="btn btn-primary btn-sm">进入管理后台</a>
+            </div>
+            <a id="loginBtn" href="login.html" class="btn btn-primary btn-sm" style="display:none;">登录</a>
+            <a id="registerBtn" href="register.html" class="btn btn-ghost btn-sm" style="display:none;">注册</a>
+            <a id="profileLink" href="profile.html" class="btn btn-primary btn-sm" style="display:none;">个人信息</a>
+            <button id="logoutBtn" class="btn btn-danger btn-sm" style="display:none;">退出登录</button>
+        </div>
+    </nav>
+
+    <div class="nav-drawer" id="navDrawer">
+        <div class="drawer-header">
+            <span class="site-brand">我的站点</span>
+            <button id="drawerCloseBtn" class="drawer-close-btn" aria-label="关闭抽屉">&times;</button>
+        </div>
+        <div class="drawer-body">
+            <div class="drawer-section-title">导航</div>
+            <ul class="drawer-nav">
+                <li><a href="index.html" class="drawer-link"><span class="drawer-icon">🏠</span>首页</a></li>
+                <li><a href="posts.html" class="drawer-link"><span class="drawer-icon">📝</span>帖子广场</a></li>
+                <li><a href="files.html" class="drawer-link active"><span class="drawer-icon">📁</span>文件中心</a></li>
+                <li><a href="profile.html" class="drawer-link login-guard"><span class="drawer-icon">👤</span>我的</a></li>
+            </ul>
+            <div class="drawer-section-title">功能</div>
+            <ul class="drawer-nav">
+                <li><a href="#" class="drawer-link" id="drawerThemeBtn"><span class="drawer-icon">🌙</span>深色模式</a></li>
+                <li><a href="help.html" class="drawer-link"><span class="drawer-icon">❓</span>帮助中心</a></li>
+                <li><a href="login.html" class="drawer-link" id="drawerLoginBtn" style="display:none;"><span class="drawer-icon">🔑</span>登录</a></li>
+                <li><a href="register.html" class="drawer-link" id="drawerRegisterBtn" style="display:none;"><span class="drawer-icon">📝</span>注册</a></li>
+                <li><a href="admin.html" class="drawer-link" id="drawerAdminLink" style="display:none;"><span class="drawer-icon">⚙️</span>管理后台</a></li>
+                <li><a href="profile.html" class="drawer-link login-guard" id="drawerProfileLink"><span class="drawer-icon">👤</span>个人信息</a></li>
+                <li><a href="#" class="drawer-link drawer-danger" id="drawerLogoutBtn" style="display:none;"><span class="drawer-icon">↪</span>退出登录</a></li>
+            </ul>
+        </div>
+    </div>
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <div class="home-container">
+        <!-- 上传区 -->
+        <section class="home-section">
+            <div class="section-header">
+                <h2>上传文件</h2>
+                <span class="section-badge">单文件上限 2MB</span>
+            </div>
+            <div class="file-upload-panel">
+                <input type="file" id="fileInput" multiple style="display:none">
+                <div class="file-drop-zone" id="fileDropArea">
+                    <p class="file-drop-title">点击选择文件，或将文件拖到此处</p>
+                    <p class="page-tip">支持图片 / 文档 / 压缩包等常见格式；单个文件不超过 2MB，超出请压缩后重试。</p>
+                    <button type="button" class="btn btn-primary btn-sm" id="filePickBtn">选择文件</button>
+                </div>
+                <div id="fileProgress" class="file-upload-progress"></div>
+            </div>
+        </section>
+
+        <!-- 文件列表 -->
+        <section class="home-section">
+            <div class="section-header">
+                <h2>我的文件</h2>
+                <span class="section-badge" id="fileCount">共 0 个文件</span>
+            </div>
+            <div class="file-toolbar">
+                <input type="text" id="fileSearchInput" class="search-input" placeholder="搜索文件名">
+                <select id="fileKindFilter" class="filter-select">
+                    <option value="">全部类型</option>
+                    <option value="image">图片</option>
+                    <option value="video">视频</option>
+                    <option value="audio">音频</option>
+                    <option value="pdf">PDF</option>
+                    <option value="doc">文档</option>
+                    <option value="excel">表格</option>
+                    <option value="ppt">演示</option>
+                    <option value="zip">压缩包</option>
+                    <option value="file">其他</option>
+                </select>
+                <label class="inline-check"><input type="checkbox" id="fileMineOnly" checked> 只看我上传的</label>
+            </div>
+            <div id="fileList" class="file-list"></div>
+        </section>
+    </div>
+
+    <nav class="bottom-nav" id="bottomNav">
+        <a href="index.html" class="bottom-nav-item">
+            <span class="bottom-nav-icon">🏠</span>
+            <span class="bottom-nav-label">首页</span>
+        </a>
+        <a href="posts.html" class="bottom-nav-item">
+            <span class="bottom-nav-icon">📝</span>
+            <span class="bottom-nav-label">帖子</span>
+        </a>
+        <a href="files.html" class="bottom-nav-item active">
+            <span class="bottom-nav-icon">📁</span>
+            <span class="bottom-nav-label">文件</span>
+        </a>
+        <a href="profile.html" class="bottom-nav-item login-guard" id="bottomProfileLink">
+            <span class="bottom-nav-icon">👤</span>
+            <span class="bottom-nav-label">我的</span>
+        </a>
+    </nav>
+
+    <script src="auth.js"></script>
+    <script src="enhance.js"></script>
+    <script>
+    (function () {
+        var drawer = document.getElementById('navDrawer');
+        var overlay = document.getElementById('sidebarOverlay');
+        var toggleBtn = document.getElementById('navToggle');
+        var closeBtn = document.getElementById('drawerCloseBtn');
+        if (drawer && overlay && toggleBtn) {
+            function openDrawer() { drawer.classList.add('open'); overlay.classList.add('show'); }
+            function closeDrawer() { drawer.classList.remove('open'); overlay.classList.remove('show'); }
+            toggleBtn.addEventListener('click', function (e) {
+                e.stopPropagation();
+                if (drawer.classList.contains('open')) closeDrawer(); else openDrawer();
+            });
+            overlay.addEventListener('click', closeDrawer);
+            if (closeBtn) closeBtn.addEventListener('click', closeDrawer);
+        }
+        var themeBtn = document.getElementById('drawerThemeBtn');
+        if (themeBtn) themeBtn.addEventListener('click', function (e) {
+            e.preventDefault();
+            var t = document.getElementById('themeToggle');
+            if (t) t.click();
+        });
+        var drawerLogout = document.getElementById('drawerLogoutBtn');
+        if (drawerLogout) drawerLogout.addEventListener('click', function (e) {
+            e.preventDefault();
+            var l = document.getElementById('logoutBtn');
+            if (l) l.click();
+        });
+    })();
+    </script>
+</body>
+</html>
