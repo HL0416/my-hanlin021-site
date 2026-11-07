@@ -1,0 +1,29 @@
+# Cloudflare Pages 项目配置（my-hanlin021-site）
+# 迁移自 Netlify：静态资源 + Pages Functions（functions/ 目录）+ Workers KV 存储
+#
+# 部署方式（二选一）：
+#   1) Git 集成：Cloudflare Dashboard → Pages → 连接 GitHub 仓库 HL0416/my-hanlin021-site
+#   2) 命令行：npx wrangler pages deploy . --project-name my-hanlin021-site
+#
+# 注意：pages_build_output_dir 为仓库根目录（站点为纯静态，无构建步骤）。
+# 根目录下的 node_modules / .git / netlify 等非站点文件已由 .assetsignore 排除，不会被上传。
+
+name = "my-hanlin021-site"
+compatibility_date = "2025-01-20"
+pages_build_output_dir = "."
+
+# ===== KV 命名空间绑定 =====
+# binding 名必须为 SITE_DATA（functions/api/data.js 通过 env.SITE_DATA 访问）
+# id 为占位值，部署前必须替换为真实命名空间 ID：
+#   创建：npx wrangler kv namespace create SITE_DATA
+#   输出中的 id 填入下方；也可在 Dashboard → Pages 项目 → Settings → Functions → KV namespace bindings 中可视化绑定
+[[kv_namespaces]]
+binding = "SITE_DATA"
+id = "a794c5f605754b3e90338787bd685285"
+
+# 若使用预览环境（Preview），可另行绑定 preview_id，缺省则复用上面的 id
+# preview_id = "REPLACE_WITH_YOUR_KV_PREVIEW_NAMESPACE_ID"
+
+# ===== 兼容性开关（按需启用）=====
+# KV 为最终一致性存储，本站在写入后立即读取的场景较少；
+# 若需要更强的读己之写一致性，可在 Dashboard 中启用 KV 缓存 TTL 调整（默认 60s）。

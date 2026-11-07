@@ -3,3 +3,8 @@
 # 依赖与锁文件不纳入提交，避免影响 Netlify 线上构建
 node_modules/
 package-lock.json
+
+# Cloudflare 部署相关本地文件
+.wrangler/
+_repo_debris/
+*.cjs

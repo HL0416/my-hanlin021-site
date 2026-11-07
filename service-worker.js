@@ -1,5 +1,5 @@
 /* service-worker.js - 我的站点离线缓存 */
-var CACHE_NAME = 'my-site-v1';
+var CACHE_NAME = 'my-site-v2';
 var CORE_ASSETS = [
   './',
   './index.html',
@@ -43,6 +43,8 @@ self.addEventListener('fetch', function (event) {
   if (event.request.method !== 'GET') { return; }
   // 仅缓存同源请求，外部资源（图片 CDN 等）走网络
   if (url.origin !== location.origin) { return; }
+  // 数据接口（Cloudflare Pages Functions: /api/*）绝不缓存，否则跨设备同步会读到旧数据
+  if (url.pathname.indexOf('/api/') === 0) { return; }
 
   event.respondWith(
     caches.match(event.request).then(function (cached) {

@@ -1,0 +1,14 @@
+# Cloudflare Pages 静态资源上传排除清单
+# pages_build_output_dir 为仓库根目录，以下非站点文件不应作为静态资源发布
+node_modules/
+.git/
+.gitignore
+netlify/
+netlify.toml
+package.json
+package-lock.json
+wrangler.toml
+temp/
+_repo_debris/
+*.cjs
+auth_backup.js

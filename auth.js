@@ -1,4 +1,4 @@
-﻿// 登录注册系统 - localStorage 前端模拟 + 超级管理员系统 + 管理后台增强
+// 登录注册系统 - localStorage 前端模拟 + 超级管理员系统 + 管理后台增强
 
 (function () {
     // 用户名按"字符"计数：中文、emoji 等均记 1 个字符（与 enhance.js 保持一致）
@@ -12,11 +12,11 @@
         }
         return n;
     }
-    // ========== 统一数据层 dataStore（云端 Netlify Blobs + 本地 localStorage 双写）==========
+    // ========== 统一数据层 dataStore（云端 KV（Cloudflare KV / Netlify Blobs）+ 本地 localStorage 双写）==========
     // get/set/remove 保持同步语义：读写本地即时生效，云端后台同步；
     // 读取优先云端：首次访问某键时异步拉取云端值，云端有值且本地为空则回填本地，下次读取生效。
     var dataStore = (function () {
-        var CLOUD_URL = '/.netlify/functions/data';
+        var CLOUD_URL = '/api/data';
         var cloudSynced = {};   // 已从云端拉取过（或已标记）的键
         var memory = {};        // 内存缓存，避免每次读取都解析 localStorage
 
@@ -294,7 +294,7 @@
             if (typeof fetch !== 'function') { return; }
             // 先同步云端墓碑再合并 users：旧标签页/旧设备本地残留的被删账号不得补传复活
             dataStore.syncDeletedUsers()
-                .then(function () { return fetch('/.netlify/functions/data?key=' + encodeURIComponent('users')); })
+                .then(function () { return fetch('/api/data?key=' + encodeURIComponent('users')); })
                 .then(function (r) { return r.json(); })
                 .then(function (res) {
                     if (res && res.ok && res.value !== null && res.value !== undefined) {
@@ -307,7 +307,7 @@
             document.addEventListener('visibilitychange', function () {
                 if (document.visibilityState === 'visible' && typeof fetch === 'function') {
                     dataStore.syncDeletedUsers()
-                        .then(function () { return fetch('/.netlify/functions/data?key=' + encodeURIComponent('users')); })
+                        .then(function () { return fetch('/api/data?key=' + encodeURIComponent('users')); })
                         .then(function (r) { return r.json(); })
                         .then(function (res) {
                             if (res && res.ok && res.value !== null && res.value !== undefined) {
@@ -4151,7 +4151,7 @@ window.adminWipeAllUsers = function () {
     // 删除前自动备份：打包被删用户资料与关联数据并下载，供误删后恢复参考
     var backupFile = window.backupWipeData(names);
 
-    var CLOUD_URL = '/.netlify/functions/data';
+    var CLOUD_URL = '/api/data';
     var USER_KEY_PREFIXES = ['userActivity_',
         'userDevices_', 'userFavorites_', 'siteDiary_', 'siteNotes_', 'siteReadLater_',
         'siteFollows_', 'siteHistory_'];
