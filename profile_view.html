@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#667eea">
+    <link rel="manifest" href="manifest.json">
+    <title>用户主页</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="profile-view-page">
+    <nav class="top-nav">
+        <div class="nav-left">
+            <span class="site-brand">我的站点</span>
+        </div>
+        <div class="nav-right">
+            <button id="themeToggle" class="btn btn-ghost btn-sm theme-btn">深色模式</button>
+            <a href="javascript:history.back()" class="btn btn-ghost btn-sm">返回</a>
+            <a href="profile.html" class="btn btn-primary btn-sm">个人中心</a>
+        </div>
+    </nav>
+
+    <div class="profile-view-container">
+        <div id="profileViewRoot" class="profile-view-card"></div>
+        <p class="back-link"><a href="index.html">&larr; 返回首页</a></p>
+    </div>
+
+    <script src="auth.js"></script>
+</body>
+</html>

@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <meta name="theme-color" content="#667eea">
+    <title>帖子广场 - 我的站点</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="posts-page">
+    <nav class="top-nav top-nav-drawer">
+        <div class="nav-left">
+            <span class="site-brand">我的站点</span>
+        </div>
+        <div class="nav-right">
+            <button id="navToggle" class="nav-toggle" aria-label="菜单">&#9776;</button>
+            <button id="themeToggle" class="btn btn-ghost btn-sm theme-btn">深色模式</button>
+            <a href="index.html" class="btn btn-ghost btn-sm">返回首页</a>
+            <div id="adminLink" style="display:none;">
+                <a href="admin.html" class="btn btn-primary btn-sm">进入管理后台</a>
+            </div>
+            <a id="loginBtn" href="login.html" class="btn btn-primary btn-sm" style="display:none;">登录</a>
+            <a id="registerBtn" href="register.html" class="btn btn-ghost btn-sm" style="display:none;">注册</a>
+            <a id="profileLink" href="profile.html" class="btn btn-primary btn-sm" style="display:none;">个人信息</a>
+            <button id="logoutBtn" class="btn btn-danger btn-sm" style="display:none;">退出登录</button>
+        </div>
+    </nav>
+
+    <div class="nav-drawer" id="navDrawer">
+        <div class="drawer-header">
+            <span class="site-brand">我的站点</span>
+            <button id="drawerCloseBtn" class="drawer-close-btn" aria-label="关闭抽屉">&times;</button>
+        </div>
+        <div class="drawer-body">
+            <div class="drawer-section-title">导航</div>
+            <ul class="drawer-nav">
+                <li><a href="index.html" class="drawer-link"><span class="drawer-icon">🏠</span>首页</a></li>
+                <li><a href="posts.html" class="drawer-link active"><span class="drawer-icon">📝</span>帖子广场</a></li>
+                <li><a href="files.html" class="drawer-link"><span class="drawer-icon">📁</span>文件中心</a></li>
+                <li><a href="profile.html" class="drawer-link login-guard" id="drawerProfileLinkNav"><span class="drawer-icon">👤</span>我的</a></li>
+            </ul>
+            <div class="drawer-section-title">功能</div>
+            <ul class="drawer-nav">
+                <li><a href="#" class="drawer-link" id="drawerThemeBtn"><span class="drawer-icon">🌙</span>深色模式</a></li>
+                <li><a href="help.html" class="drawer-link"><span class="drawer-icon">❓</span>帮助中心</a></li>
+                <li><a href="login.html" class="drawer-link" id="drawerLoginBtn" style="display:none;"><span class="drawer-icon">🔑</span>登录</a></li>
+                <li><a href="register.html" class="drawer-link" id="drawerRegisterBtn" style="display:none;"><span class="drawer-icon">📝</span>注册</a></li>
+                <li><a href="admin.html" class="drawer-link" id="drawerAdminLink" style="display:none;"><span class="drawer-icon">⚙️</span>管理后台</a></li>
+                <li><a href="profile.html" class="drawer-link login-guard" id="drawerProfileLink"><span class="drawer-icon">👤</span>个人信息</a></li>
+                <li><a href="#" class="drawer-link drawer-danger" id="drawerLogoutBtn" style="display:none;"><span class="drawer-icon">↪</span>退出登录</a></li>
+            </ul>
+        </div>
+    </div>
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <div class="home-container">
+        <!-- 发帖区 -->
+        <section class="home-section">
+            <div class="section-header">
+                <h2>发布帖子</h2>
+                <span class="section-badge">标题 + 正文 + 图片/附件</span>
+            </div>
+            <div id="postComposer" class="post-composer">
+                <input type="text" id="postTitleInput" class="post-title-input" maxlength="60" placeholder="帖子标题（必填，最多 60 个字符）">
+                <textarea id="postBodyInput" class="post-body-input" rows="5" placeholder="写下你的正文内容…"></textarea>
+                <input type="file" id="postImageInput" accept="image/*" multiple style="display:none">
+                <input type="file" id="postAttachInput" multiple style="display:none">
+                <div class="post-attach-row">
+                    <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('postImageInput').click()">🖼️ 添加图片（最多 3 张）</button>
+                    <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('postAttachInput').click()">📎 添加附件（最多 2 个）</button>
+                    <button type="button" class="btn btn-primary btn-sm" id="postSubmitBtn">发布帖子</button>
+                </div>
+                <div id="postImagePreview" class="post-preview-imgs"></div>
+                <div id="postAttachPreview" class="post-preview-atts"></div>
+                <p class="page-tip">图片单张上限 1.5MB，附件单个上限 1MB；超出请压缩后重试。登录后才能发布帖子。</p>
+            </div>
+        </section>
+
+        <!-- 帖子列表 -->
+        <section class="home-section">
+            <div class="section-header">
+                <h2>帖子广场</h2>
+                <span class="section-badge" id="postCount">共 0 篇</span>
+            </div>
+            <div class="post-toolbar">
+                <input type="text" id="postSearchInput" class="search-input" placeholder="搜索标题 / 正文 / 作者">
+                <label class="inline-check"><input type="checkbox" id="postMineOnly"> 只看我的帖子</label>
+            </div>
+            <div id="postList" class="post-list"></div>
+        </section>
+    </div>
+
+    <nav class="bottom-nav" id="bottomNav">
+        <a href="index.html" class="bottom-nav-item">
+            <span class="bottom-nav-icon">🏠</span>
+            <span class="bottom-nav-label">首页</span>
+        </a>
+        <a href="posts.html" class="bottom-nav-item active">
+            <span class="bottom-nav-icon">📝</span>
+            <span class="bottom-nav-label">帖子</span>
+        </a>
+        <a href="files.html" class="bottom-nav-item">
+            <span class="bottom-nav-icon">📁</span>
+            <span class="bottom-nav-label">文件</span>
+        </a>
+        <a href="profile.html" class="bottom-nav-item login-guard" id="bottomProfileLink">
+            <span class="bottom-nav-icon">👤</span>
+            <span class="bottom-nav-label">我的</span>
+        </a>
+    </nav>
+
+    <!-- 帖子详情 -->
+    <div class="modal" id="postDetailModal" style="display:none;">
+        <div class="modal-content post-detail-modal">
+            <button type="button" class="modal-close" onclick="SiteEnhance.closePost()">&times;</button>
+            <div id="postDetailBody"></div>
+        </div>
+    </div>
+
+    <script src="auth.js"></script>
+    <script src="enhance.js"></script>
+    <script>
+    (function () {
+        var drawer = document.getElementById('navDrawer');
+        var overlay = document.getElementById('sidebarOverlay');
+        var toggleBtn = document.getElementById('navToggle');
+        var closeBtn = document.getElementById('drawerCloseBtn');
+        if (drawer && overlay && toggleBtn) {
+            function openDrawer() { drawer.classList.add('open'); overlay.classList.add('show'); }
+            function closeDrawer() { drawer.classList.remove('open'); overlay.classList.remove('show'); }
+            toggleBtn.addEventListener('click', function (e) {
+                e.stopPropagation();
+                if (drawer.classList.contains('open')) closeDrawer(); else openDrawer();
+            });
+            overlay.addEventListener('click', closeDrawer);
+            if (closeBtn) closeBtn.addEventListener('click', closeDrawer);
+        }
+        var themeBtn = document.getElementById('drawerThemeBtn');
+        if (themeBtn) themeBtn.addEventListener('click', function (e) {
+            e.preventDefault();
+            var t = document.getElementById('themeToggle');
+            if (t) t.click();
+        });
+        var drawerLogout = document.getElementById('drawerLogoutBtn');
+        if (drawerLogout) drawerLogout.addEventListener('click', function (e) {
+            e.preventDefault();
+            var l = document.getElementById('logoutBtn');
+            if (l) l.click();
+        });
+    })();
+    </script>
+</body>
+</html>
