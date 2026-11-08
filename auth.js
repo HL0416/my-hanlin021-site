@@ -1040,7 +1040,7 @@ var MARVIS_API_BASE = (function () {
     window.syncNavAuth = syncNavAuth;
 
     // 首页欢迎栏已按需求移除，改为按页面元素判定：无欢迎栏时首页渲染、导航同步、退出登录仍需正常工作
-    var isIndexHomePage = !!document.getElementById('heroCarousel');
+    var isIndexHomePage = !!(document.getElementById('announcementList') || document.getElementById('momentFeed') || document.getElementById('contentList'));
 
     if (logoutBtn || welcomeEl) {
         var session = getSession();
