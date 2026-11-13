@@ -7170,4 +7170,74 @@ window.exportGuestbookList = function() {
             }
         }).catch(function () { /* ignore */ });
     });
+    /* 首访冷启动：云端数据异步落地后补一次首页渲染。
+       首屏 initHomePage 早于数据显示执行，会渲染为空态且不会自动重绘。 */
+    (function bindHomeDataRefresh() {
+        var isHomeCtx = !!(document.getElementById('contentList') || document.getElementById('announcementList') || document.getElementById('momentFeed'));
+        if (!isHomeCtx) { return; }
+        var refreshTimer = null;
+        function refreshHome() {
+            if (refreshTimer) { return; }
+            refreshTimer = setTimeout(function () {
+                refreshTimer = null;
+                try {
+                    var s = getSession();
+                    if (typeof renderAnnouncements === 'function') { renderAnnouncements(); }
+                    if (typeof renderContentCards === 'function') { renderContentCards(s ? s.username : ''); }
+                    if (typeof renderFeedbacks === 'function') { renderFeedbacks(); }
+                    if (typeof renderGuestbook === 'function') { renderGuestbook(); }
+                    if (typeof renderMomentFeed === 'function') { renderMomentFeed(); }
+                    if (typeof window.renderHeroStats === 'function') { window.renderHeroStats(); }
+                } catch (e) { }
+            }, 150);
+        }
+        var refreshKeys = /^(siteContents|siteGuestbook|siteFeedbacks|siteMoments|announcements|contentInteractions|users|siteSettings|currentUser)$/;
+        window.addEventListener('storage', function (ev) {
+            if (!ev || !ev.key || !refreshKeys.test(ev.key)) { return; }
+            refreshHome();
+        });
+        window.addEventListener('site-data-refreshed', refreshHome);
+        setTimeout(refreshHome, 1200);
+        setTimeout(refreshHome, 4000);
+    })();
+
+    /* 首页首屏 hero 区：v2 首页重构后按钮与统计缺少脚本绑定，此处补齐 */
+    (function initHeroSection() {
+        function scrollToEl(id) {
+            var el = document.getElementById(id);
+            if (!el) { return; }
+            try { el.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) { el.scrollIntoView(); }
+        }
+        var contentBtn = document.getElementById('heroContentBtn');
+        if (contentBtn) { contentBtn.addEventListener('click', function () { scrollToEl('contentList'); }); }
+        var guestBtn = document.getElementById('heroGuestbookBtn');
+        if (guestBtn) { guestBtn.addEventListener('click', function () { scrollToEl('guestbookList'); }); }
+        var pubLink = document.getElementById('heroPublishLink');
+        if (pubLink) { pubLink.style.display = 'none'; }
+        window.renderHeroStats = function () {
+            try {
+                var s = getSession();
+                var users = getUsers();
+                var contents = getContents();
+                var guest = getGuestbook();
+                var moments = [];
+                try { moments = JSON.parse(localStorage.getItem('siteMoments') || '[]') || []; } catch (e) { moments = []; }
+                var statMap = { heroStatContent: contents.length, heroStatMoment: moments.length, heroStatGuestbook: guest.length, heroStatUser: users.length };
+                for (var sid in statMap) {
+                    if (!Object.prototype.hasOwnProperty.call(statMap, sid)) { continue; }
+                    var sel = document.getElementById(sid);
+                    if (sel) { sel.textContent = String(statMap[sid]); }
+                }
+                if (pubLink && s && s.username) {
+                    var full = null;
+                    for (var i = 0; i < users.length; i++) {
+                        if (users[i] && users[i].username === s.username) { full = users[i]; break; }
+                    }
+                    pubLink.style.display = (full && (full.role === 'super_admin' || full.role === 'admin')) ? 'inline-block' : 'none';
+                }
+            } catch (e) { }
+        };
+        window.renderHeroStats();
+    })();
+
 })();
