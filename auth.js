@@ -1163,6 +1163,11 @@ var MARVIS_API_BASE = (function () {
         }
     }
     window.syncNavAuth = syncNavAuth;
+    // 首页补渲染需要跨 IIFE 调用这三个渲染函数，必须显式挂到 window：
+    // 同文件的 bindHomeDataRefresh 位于另一个 IIFE，不导出时 typeof 恒为 undefined，补刷新会被静默跳过
+    window.renderAnnouncements = renderAnnouncements;
+    window.renderGuestbook = renderGuestbook;
+    window.renderContentCards = renderContentCards;
 
     // 首页欢迎栏已按需求移除，改为按页面元素判定：无欢迎栏时首页渲染、导航同步、退出登录仍需正常工作
     var isIndexHomePage = !!(document.getElementById('announcementList') || document.getElementById('momentFeed') || document.getElementById('contentList'));
@@ -7194,13 +7199,13 @@ window.exportGuestbookList = function() {
                 refreshTimer = null;
                 try {
                     var s = getSession();
-                    if (typeof renderAnnouncements === 'function') { renderAnnouncements(); }
-                    if (typeof renderContentCards === 'function') { renderContentCards(s ? s.username : ''); }
-                    if (typeof renderFeedbacks === 'function') { renderFeedbacks(); }
-                    if (typeof renderGuestbook === 'function') { renderGuestbook(); }
-                    if (typeof renderMomentFeed === 'function') { renderMomentFeed(); }
+                    if (typeof window.renderAnnouncements === 'function') { window.renderAnnouncements(); }
+                    if (typeof window.renderContentCards === 'function') { window.renderContentCards(s ? s.username : ''); }
+                    if (typeof window.renderFeedbacks === 'function') { window.renderFeedbacks(); }
+                    if (typeof window.renderGuestbook === 'function') { window.renderGuestbook(); }
+                    if (typeof window.renderMomentFeed === 'function') { window.renderMomentFeed(); }
                     if (typeof window.renderHeroStats === 'function') { window.renderHeroStats(); }
-                } catch (e) { }
+                } catch (e) { try { console.warn('[refreshHome]', e); } catch (e2) { } }
             }, 150);
         }
         var refreshKeys = /^(siteContents|siteGuestbook|siteFeedbacks|siteMoments|announcements|contentInteractions|users|siteSettings|currentUser)$/;
