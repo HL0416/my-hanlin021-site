@@ -1,6 +1,6 @@
 /* service-worker.js - 我的站点离线缓存（v3：导航网络优先 + 预缓存 + 离线兜底） */
-var CACHE_NAME = 'my-site-v8';
-var RUNTIME_CACHE = 'my-site-runtime-v8';
+var CACHE_NAME = 'my-site-v9';
+var RUNTIME_CACHE = 'my-site-runtime-v9';
 
 var CORE_ASSETS = [
   './',

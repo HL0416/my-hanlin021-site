@@ -75,6 +75,17 @@ var MARVIS_API_BASE = (function () {
             return s === '' || s === 'null' || s === 'undefined' || s === '[]' || s === '{}' || s === '""';
         }
 
+        // 云端键落地标记 + 通知：首访时首页在数据到达前已按空态渲染，需要数据落地后触发补渲染
+        function markDataLoaded(key) {
+            try {
+                if (!window.__siteDataLoaded) { window.__siteDataLoaded = {}; }
+                window.__siteDataLoaded[key] = true;
+                if (typeof window.dispatchEvent === 'function' && typeof CustomEvent === 'function') {
+                    window.dispatchEvent(new CustomEvent('site-data-refreshed', { detail: { key: key } }));
+                }
+            } catch (e) { /* ignore */ }
+        }
+
         function pullKey(key) {
             if (cloudSynced[key]) { return; }
             cloudSynced[key] = true;
@@ -94,6 +105,7 @@ var MARVIS_API_BASE = (function () {
                     if (isEmptyLocalValue(readLocal(key))) {
                         writeLocal(key, typeof res.value === 'string' ? res.value : JSON.stringify(res.value));
                     }
+                    markDataLoaded(key);
                 })
                 .catch(function () { /* 云端不可用时静默回退本地 */ });
         }
@@ -7197,8 +7209,13 @@ window.exportGuestbookList = function() {
             refreshHome();
         });
         window.addEventListener('site-data-refreshed', refreshHome);
-        setTimeout(refreshHome, 1200);
-        setTimeout(refreshHome, 4000);
+        if (window.__siteDataLoaded && (window.__siteDataLoaded.siteContents || window.__siteDataLoaded.siteGuestbook)) {
+            refreshHome();
+        }
+        var refreshPlan = [600, 1200, 2500, 4000, 6000, 9000];
+        for (var ri = 0; ri < refreshPlan.length; ri++) {
+            setTimeout(refreshHome, refreshPlan[ri]);
+        }
     })();
 
     /* 首页首屏 hero 区：v2 首页重构后按钮与统计缺少脚本绑定，此处补齐 */
@@ -7222,7 +7239,8 @@ window.exportGuestbookList = function() {
                 var guest = getGuestbook();
                 var moments = [];
                 try { moments = JSON.parse(localStorage.getItem('siteMoments') || '[]') || []; } catch (e) { moments = []; }
-                var statMap = { heroStatContent: contents.length, heroStatMoment: moments.length, heroStatGuestbook: guest.length, heroStatUser: users.length };
+                // 匿名访客读不到 users（401），此时展示占位符而不是误导性的 0
+                var statMap = { heroStatContent: contents.length, heroStatMoment: moments.length, heroStatGuestbook: guest.length, heroStatUser: users.length > 0 ? users.length : (s && s.username ? 0 : '—') };
                 for (var sid in statMap) {
                     if (!Object.prototype.hasOwnProperty.call(statMap, sid)) { continue; }
                     var sel = document.getElementById(sid);
