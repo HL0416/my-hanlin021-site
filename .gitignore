@@ -8,3 +8,9 @@ package-lock.json
 .wrangler/
 _repo_debris/
 *.cjs
+
+# 备份与历史副本严禁入库（publish = "." 会被直接发布到线上）
+*.bak
+*.bak-*
+*.old
+auth_backup*.js

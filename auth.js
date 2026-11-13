@@ -650,9 +650,9 @@ var MARVIS_API_BASE = (function () {
         if (/\d/.test(password)) score++;
         if (/[^a-zA-Z0-9]/.test(password)) score++;
         var level = score >= 5 ? '强' : (score >= 3 ? '中' : '弱');
-        // 基础要求：至少6位且同时包含字母和数字
-        var ok = password.length >= 6 && /[a-zA-Z]/.test(password) && /\d/.test(password);
-        var tip = ok ? '密码强度：' + level : '密码强度：弱（至少6位，且需同时包含字母和数字）';
+        // 基础要求：至少8位，且同时包含字母和数字（与服务端 PBKDF2 写入前的校验保持一致）
+        var ok = password.length >= 8 && /[a-zA-Z]/.test(password) && /\d/.test(password);
+        var tip = ok ? '密码强度：' + level : '密码强度：弱（至少8位，且需同时包含字母和数字）';
         return { ok: ok, level: level, tip: tip };
     }
 
@@ -1020,8 +1020,7 @@ var MARVIS_API_BASE = (function () {
             var password = document.getElementById('password').value;
             if (!account || !password) { showError('请输入账号和密码'); return; }
 
-            // 云端鉴权优先：向 /api/auth 换取会话令牌，服务端为密码唯一裁判
-            // 仅在网络不可达（返回 null）时降级为本地校验，避免离线环境下无法登录
+            // 云端鉴权为唯一裁判：口令只发往服务端校验，前端不再做任何本地明文比对
             var cloudAuth = null;
             try { cloudAuth = await window.siteAuth.login(account, password); } catch (errCloud) { cloudAuth = null; }
             var cloudAuthOk = !!(cloudAuth && cloudAuth.ok === true && cloudAuth.user);
@@ -1046,17 +1045,9 @@ var MARVIS_API_BASE = (function () {
                 }
             }
             if (!cloudAuthOk) {
-                if (cloudAuth && cloudAuth.ok === false && cloudAuth.error) {
-                    addLog('login_fail', '登录失败：' + account);
-                    showError(cloudAuth.error || '账号或密码错误');
-                    return;
-                }
-                // 云端不可达：降级本地校验
-                if (!found || found.password !== password) {
-                    addLog('login_fail', '登录失败：' + account);
-                    showError('账号或密码错误');
-                    return;
-                }
+                addLog('login_fail', '登录失败：' + account);
+                showError((cloudAuth && cloudAuth.error) || '账号或密码错误');
+                return;
             } else {
                 // 云端已认证：本地无该用户（新设备/脱敏缓存）时用云端身份构造会话；
                 // 已有本地记录则以云端角色为准，防止本地篡改提权
@@ -1078,6 +1069,13 @@ var MARVIS_API_BASE = (function () {
             setSession(found);
             var isAdminUser = found.role === 'super_admin' || found.role === 'admin';
             addLog('login', '登录成功：' + found.username + (isAdminUser ? '（管理员）' : ''));
+
+            // 服务端判定为弱口令（如历史上的 admin/admin）时，强制提示立即改密
+            if (cloudAuth && cloudAuth.mustChangePassword) {
+                try { localStorage.setItem('siteWeakPasswordWarning', '1'); } catch (e) { /* ignore */ }
+                alert('当前密码强度不足（少于 8 位、纯数字或纯字母），存在被猜解风险。\n请立即前往「账号与安全 → 修改密码」设置至少 8 位的字母+数字组合。');
+            }
+
             window.location.href = isAdminUser ? 'admin.html' : 'index.html';
         });
     }
@@ -2212,7 +2210,7 @@ var MARVIS_API_BASE = (function () {
     // ========== 账号与安全 ==========
     var securityForm = document.getElementById('changePasswordForm');
     if (securityForm) {
-        securityForm.addEventListener('submit', function (e) {
+        securityForm.addEventListener('submit', async function (e) {
             e.preventDefault();
             clearError();
 
@@ -2223,19 +2221,25 @@ var MARVIS_API_BASE = (function () {
             if (!currentPwd || !newPwd || !confirmPwd) { showError('请填写所有密码字段'); return; }
 
             var session = getSession();
-            var users = getUsers();
-            var found = null;
-            for (var i = 0; i < users.length; i++) {
-                if (users[i].username === session.username) { found = users[i]; break; }
-            }
-            if (!found || found.password !== currentPwd) { showError('原密码错误'); return; }
+            if (!session) { showError('登录状态已失效，请重新登录'); return; }
 
             var strength = checkPasswordStrength(newPwd);
             if (!strength.ok) { showError(strength.tip); return; }
             if (newPwd !== confirmPwd) { showError('两次输入的新密码不一致'); return; }
 
-            found.password = newPwd;
-            saveUsers(users);
+            // 口令由服务端以 PBKDF2 哈希存储并校验，前端不再持有/比对任何口令
+            var res = null;
+            try {
+                res = await window.siteAuth.call('change-password', {
+                    token: window.siteAuth.token(),
+                    oldPassword: currentPwd,
+                    newPassword: newPwd
+                });
+            } catch (err) { res = null; }
+            if (!res) { showError('网络异常，密码未修改，请稍后重试'); return; }
+            if (res.ok !== true) { showError(res.error || '密码修改失败'); return; }
+            if (res.token) { window.siteAuth.setToken(res.token); }
+
             addLog('change_password', '修改密码成功');
             alert('密码修改成功！请使用新密码登录。');
             window.location.href = 'login.html';
@@ -2536,7 +2540,7 @@ var MARVIS_API_BASE = (function () {
     if (deleteAccountModal) deleteAccountModal.addEventListener('click', function (e) { if (e.target === deleteAccountModal) deleteAccountModal.style.display = 'none'; });
 
     if (deleteAccountConfirm) {
-        deleteAccountConfirm.addEventListener('click', function () {
+        deleteAccountConfirm.addEventListener('click', async function () {
             var session = getSession();
             if (!session) { window.location.href = 'login.html'; return; }
             var pwd = deleteAccountInput.value;
@@ -2544,7 +2548,12 @@ var MARVIS_API_BASE = (function () {
             var users = getUsers();
             var user = findUserByUsername(users, session.username);
             if (!user) { alert('账号不存在或已被删除'); window.location.href = 'login.html'; return; }
-            if (user.password !== pwd) { alert('密码错误，无法注销账号'); deleteAccountInput.value = ''; deleteAccountInput.focus(); return; }
+            // 身份确认交给服务端按哈希校验，本地不再保存明文口令
+            var pwdCheck = null;
+            try {
+                pwdCheck = await window.siteAuth.call('verify-password', { token: window.siteAuth.token(), password: pwd });
+            } catch (errVerify) { pwdCheck = null; }
+            if (!pwdCheck || pwdCheck.ok !== true) { alert('密码错误，无法注销账号'); deleteAccountInput.value = ''; deleteAccountInput.focus(); return; }
             if (user.role === 'super_admin') { alert('超级管理员账号不允许注销'); deleteAccountModal.style.display = 'none'; return; }
 
             // 记录注销日志（需在清除会话前调用，addLog 依赖会话取操作人）
@@ -2615,22 +2624,10 @@ var MARVIS_API_BASE = (function () {
                     return;
                 }
 
-                var users = getUsers();
-                var target = findUserByAccount(users, account);
-                if (!target) {
-                    if (accountTip) accountTip.textContent = '该手机号/邮箱未注册，无法找回密码';
-                    if (accountInput) accountInput.focus();
-                    return;
-                }
-
-                resetCode = String(Math.floor(100000 + Math.random() * 900000));
-                dataStore.set('forgotCode', resetCode);
-                dataStore.set('forgotTarget', account);
-                dataStore.set('forgotTargetUsername', target.username);
-                // 前端模拟发送验证码（真实项目中这里应调用短信/邮件服务）
-                alert('验证码已发送至 ' + account + '（模拟）\n验证码：' + resetCode);
-                startCountdown(60);
-                if (accountTip) accountTip.textContent = '验证码已发送，请注意查收（模拟环境显示在弹窗中）';
+                // 站内没有真实短信/邮件通道，原先的"前端验证码"等同任意人可重置任意账号，
+                // 口令改为服务端哈希后一并停用，改由管理员在后台重置
+                if (accountTip) accountTip.textContent = '暂不支持自助找回，请联系管理员重置口令';
+                showError('暂不支持自助重置密码，请联系管理员重置');
             });
         }
 
@@ -2644,33 +2641,16 @@ var MARVIS_API_BASE = (function () {
             var confirmPassword = document.getElementById('forgotConfirmPassword').value;
 
             if (!account) { showError('请输入手机号或邮箱'); return; }
-            if (!code) { showError('请输入验证码'); return; }
-            if (dataStore.get('forgotTarget') !== account) { showError('请先对当前账号发送验证码'); return; }
-            if (dataStore.get('forgotCode') !== code) { showError('验证码错误或已过期'); return; }
 
-            var strength = checkPasswordStrength(newPassword);
-            if (!strength.ok) { showError(strength.tip); return; }
-            if (newPassword !== confirmPassword) { showError('两次输入的密码不一致'); return; }
-
-            var username = dataStore.get('forgotTargetUsername');
-            var users = getUsers();
-            var updated = false;
-            for (var i = 0; i < users.length; i++) {
-                if (users[i].username === username) {
-                    users[i].password = newPassword;
-                    updated = true;
-                    break;
-                }
-            }
-            if (!updated) { showError('账号不存在，请重新操作'); return; }
-
-            saveUsers(users);
+            // 口令已改为服务端 PBKDF2 哈希存储，前台不持有任何可写入口；
+            // 站内暂无真实短信/邮件通道（原"验证码"仅前端生成），自助重置等同任意账号可被改密，
+            // 故停用自助找回，统一由管理员在后台重置口令。
             dataStore.remove('forgotCode');
             dataStore.remove('forgotTarget');
             dataStore.remove('forgotTargetUsername');
-            addLog('reset_password', '找回密码：' + username);
-            alert('密码重置成功！请使用新密码登录。');
-            window.location.href = 'login.html';
+            showError('暂不支持自助重置密码，请联系管理员重置');
+            alert('为保障账号安全，密码已改为服务端加密存储，暂不支持前台自助重置。\n请联系站点管理员重置口令。');
+            return;
         });
     }
 
@@ -4139,6 +4119,7 @@ function renderUsersTable() {
             actionBtns = '<button class="btn-small btn-primary" onclick="viewUserDetail(\'' + u.username + '\')">详情</button>';
         } else {
             actionBtns = '<button class="btn-small btn-primary" onclick="viewUserDetail(\'' + u.username + '\')">详情</button>' +
+                        '<button class="btn-small" onclick="resetUserPassword(\'' + u.username + '\')">重置口令</button>' +
                         '<button class="btn-small" onclick="toggleUserStatus(\'' + u.username + '\')">' + (u.disabled ? '启用' : '禁用') + '</button>' +
                         '<button class="btn-small" onclick="changeRole(\'' + u.username + '\')">降级</button>' +
                         '<button class="btn-small btn-danger" onclick="deleteUser(\'' + u.username + '\')">删除</button>';
@@ -4179,6 +4160,39 @@ function exportUserList() {
     URL.revokeObjectURL(link.href);
     addLog('export_users', '导出用户列表 CSV');
 }
+
+// ========== 管理员重置他人口令（口令由服务端加盐哈希存储，前端不再直写 users） ==========
+window.resetUserPassword = function (username) {
+    var session = getSession();
+    if (!session || (session.role !== 'super_admin' && session.role !== 'admin')) {
+        showToast('无权限重置口令', 'error');
+        return;
+    }
+    var pwd = prompt('为账号「' + username + '」设置新密码\n至少 8 位，且需同时包含字母和数字：');
+    if (pwd === null) return;
+    if (pwd.length < 8 || !/[a-zA-Z]/.test(pwd) || !/\d/.test(pwd)) {
+        showToast('密码至少 8 位，且需同时包含字母和数字', 'error');
+        return;
+    }
+    var confirmPwd = prompt('请再次输入新密码以确认：');
+    if (confirmPwd === null) return;
+    if (confirmPwd !== pwd) {
+        showToast('两次输入不一致，已取消', 'error');
+        return;
+    }
+    window.siteAuth.call('admin-reset-password', {
+        token: window.siteAuth.token(),
+        username: username,
+        newPassword: pwd
+    }).then(function (res) {
+        if (res && res.ok === true) {
+            showToast('已重置「' + username + '」的密码，请线下告知本人', 'success');
+            addLog('reset_password', '重置口令：' + username);
+        } else {
+            showToast((res && res.error) ? res.error : '重置失败，请稍后重试', 'error');
+        }
+    });
+};
 
 // ========== 批量删除用户 ==========
 window.deleteSelectedUsers = function () {
@@ -4547,19 +4561,23 @@ window.createAdmin = function () {
         }
     }
 
-    users.push({
+    // 口令由服务端哈希入库（前端不再向 users 表直写 password）
+    window.siteAuth.call('admin-create-user', {
+        token: window.siteAuth.token(),
         username: username,
         password: password,
-        role: 'admin',
         nickname: nickname || '',
-        createdAt: Date.now(),
-        accountId: genAccountId(users, 'admin')
+        role: 'admin'
+    }).then(function (res) {
+        if (res && res.ok === true) {
+            addLog('create_admin', '创建管理员账号：' + username);
+            closeModal();
+            renderUsersTable();
+            alert('管理员账号 "' + username + '" 创建成功！');
+        } else {
+            alert((res && res.error) ? res.error : '创建失败，请稍后重试');
+        }
     });
-    saveUsers(users);
-    addLog('create_admin', '创建管理员账号：' + username);
-    closeModal();
-    renderUsersTable();
-    alert('管理员账号 "' + username + '" 创建成功！');
 };
 
 // ========== 角色变更 ==========

@@ -27,7 +27,7 @@ const READ_PUBLIC_WRITE_ADMIN_KEYS = new Set(['siteSettings']);
 const ADMIN_ONLY_KEYS = new Set([
     'adminLogs', 'siteVisitLog', 'siteDeletedUsers', 'siteSettings', 'managedFiles'
 ]);
-const SENSITIVE_USER_FIELDS = ['password', 'phone', 'email', 'securityQuestion', 'securityAnswer'];
+const SENSITIVE_USER_FIELDS = ['password', 'passwordHash', 'phone', 'email', 'securityQuestion', 'securityAnswer'];
 
 function getSecret() {
     return process.env.SITE_ADMIN_TOKEN || 'PLEASE_SET_SITE_ADMIN_TOKEN_ENV';
@@ -75,6 +75,54 @@ function isAdmin(session) {
     return !!session && (session.r === 'super_admin' || session.r === 'admin');
 }
 
+// 管理员读取 users 时只剔除口令类字段（password/passwordHash），保留手机号/邮箱等联系方式以支撑后台管理
+const SECRET_USER_FIELDS = ['password', 'passwordHash'];
+
+function stripUserSecrets(value) {
+    let list = value;
+    if (typeof list === 'string') {
+        try { list = JSON.parse(list); } catch (e) { return value; }
+    }
+    if (!Array.isArray(list)) return value;
+    return list.map(function (u) {
+        const copy = {};
+        Object.keys(u || {}).forEach(function (k) {
+            if (SECRET_USER_FIELDS.indexOf(k) === -1) copy[k] = u[k];
+        });
+        copy.hasPassword = !!(u && (u.passwordHash || u.password));
+        return copy;
+    });
+}
+
+// 管理员整表写 users 时的口令保护：
+// 前端口令一律拿不到，因此写回值里不可能带 passwordHash，这里逐条沿用云端原值，避免整表写把口令抹掉
+async function preserveUserSecrets(store, incoming) {
+    let list = incoming;
+    if (typeof list === 'string') {
+        try { list = JSON.parse(list); } catch (e) { return incoming; }
+    }
+    if (!Array.isArray(list)) return incoming;
+    const existingRaw = await store.get('users', { type: 'json' });
+    const existing = Array.isArray(existingRaw) ? existingRaw : [];
+    const byName = {};
+    existing.forEach(function (u) { if (u && u.username) byName[u.username] = u; });
+    return list.map(function (u) {
+        if (!u || !u.username) return u;
+        const prev = byName[u.username];
+        const next = Object.assign({}, u);
+        delete next.password;
+        if (prev && prev.passwordHash) {
+            next.passwordHash = prev.passwordHash;
+            if (prev.passwordUpdatedAt !== undefined) next.passwordUpdatedAt = prev.passwordUpdatedAt;
+        } else if (next.passwordHash === undefined) {
+            // 云端本就没有口令（如历史异常数据），不下发空哈希
+            delete next.passwordHash;
+        }
+        next.hasPassword = !!next.passwordHash;
+        return next;
+    });
+}
+
 function sanitizeUsers(value) {
     let list = value;
     if (typeof list === 'string') {
@@ -86,16 +134,17 @@ function sanitizeUsers(value) {
         Object.keys(u || {}).forEach(function (k) {
             if (SENSITIVE_USER_FIELDS.indexOf(k) === -1) copy[k] = u[k];
         });
-        copy.hasPassword = !!(u && u.password);
+        copy.hasPassword = !!(u && (u.passwordHash || u.password));
         return copy;
     });
     return out;
 }
 
 // 普通用户自助可改的字段白名单（role / accountId / createdAt 一律不可自改）
+// 口令不在此列：口令只能通过 /api/auth 的 change-password 端点按哈希写入
 const SELF_EDITABLE_USER_FIELDS = [
     'nickname', 'avatar', 'avatarUrl', 'phone', 'email', 'bio', 'gender', 'birthday',
-    'signature', 'password', 'securityQuestion', 'securityAnswer', 'lastLogin', 'profileCompleted', 'updatedAt'
+    'signature', 'securityQuestion', 'securityAnswer', 'lastLogin', 'profileCompleted', 'updatedAt'
 ];
 
 // 普通用户整表写 users 时的服务端字段级降级：
@@ -182,9 +231,9 @@ export default async function handler(req) {
             }
             const value = await store.get(key, { type: 'json' });
             let out = value === undefined ? null : value;
-            // users：非管理员一律脱敏，防止密码外泄
-            if (key === 'users' && out !== null && !isAdmin(session)) {
-                out = sanitizeUsers(out);
+            // users：管理员只去掉口令字段，其他人一律脱敏，防止密码外泄
+            if (key === 'users' && out !== null) {
+                out = isAdmin(session) ? stripUserSecrets(out) : sanitizeUsers(out);
             }
             return Response.json({ ok: true, value: out }, { status: 200, headers: corsHeaders });
         }
@@ -222,10 +271,15 @@ export default async function handler(req) {
             if (isAdminOnlyKey(writeKey) && !isAdmin(session)) {
                 return Response.json({ ok: false, error: 'forbidden' }, { status: 403, headers: corsHeaders });
             }
-            if (writeValue === null || writeValue === undefined) {
+            // 管理员整表写 users：口令列一律沿用云端原值（前端拿不到口令，整表写不得成为改口令或抹口令的旁路）
+            let finalValue = writeValue;
+            if (writeKey === 'users' && isAdmin(session) && writeValue !== null && writeValue !== undefined) {
+                finalValue = await preserveUserSecrets(store, writeValue);
+            }
+            if (finalValue === null || finalValue === undefined) {
                 await store.delete(writeKey);
             } else {
-                await store.setJSON(writeKey, writeValue);
+                await store.setJSON(writeKey, finalValue);
             }
             return Response.json({ ok: true }, { status: 200, headers: corsHeaders });
         }
