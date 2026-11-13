@@ -944,7 +944,9 @@
                 return '<label class="perm-check"><input type="checkbox" data-user="' + esc(u.username) + '" value="' + m.key + '"' +
                     (checked ? ' checked' : '') + (isSuperRow ? ' disabled' : '') + '> ' + m.name + '</label>';
             }).join('');
-            html += '<tr><td><strong>' + esc(u.username) + '</strong><div class="perm-account">账号：' + esc(u.accountId || '未分配') + '</div></td>' +
+            var nickText = (u.nickname && String(u.nickname).trim() && String(u.nickname).trim() !== u.username)
+                ? '<div class="perm-account">昵称：' + esc(String(u.nickname).trim()) + '</div>' : '';
+            html += '<tr><td><strong>' + esc(u.username) + '</strong>' + nickText + '<div class="perm-account">账号：' + esc(u.accountId || '未分配') + '</div></td>' +
                 '<td>' + (isSuperRow ? '<span class="role-tag role-super">超级管理员</span>' : '<span class="role-tag role-admin">管理员</span>') + '</td>' +
                 '<td><div class="perm-grid">' + cells + '</div></td>' +
                 '<td>' + (isSuperRow

@@ -6764,3 +6764,342 @@ textarea.input-invalid {
         flex: 1 1 auto;
     }
 }
+
+/* ==================== v3 增强：首页分区架构 ==================== */
+.home-v2 {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+.home-hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+    gap: 24px;
+    align-items: center;
+    padding: 28px;
+    border-radius: 18px;
+    background: linear-gradient(135deg, #4f6ef7 0%, #7a5cf0 100%);
+    color: #fff;
+    box-shadow: 0 10px 30px rgba(79, 110, 247, 0.25);
+}
+.hero-eyebrow {
+    margin: 0 0 8px;
+    font-size: 13px;
+    letter-spacing: 2px;
+    opacity: 0.85;
+}
+.hero-title {
+    margin: 0 0 10px;
+    font-size: 28px;
+    line-height: 1.3;
+    color: #fff;
+}
+.hero-sub {
+    margin: 0 0 18px;
+    font-size: 14px;
+    line-height: 1.7;
+    opacity: 0.9;
+}
+.hero-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+.hero-actions .btn {
+    min-width: 112px;
+}
+.hero-actions .btn-ghost {
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.55);
+    background: rgba(255, 255, 255, 0.12);
+}
+.hero-stats {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+.hero-stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 14px 8px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.16);
+    border: 1px solid rgba(255, 255, 255, 0.22);
+}
+.hero-stat-num {
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1.2;
+}
+.hero-stat-label {
+    font-size: 12px;
+    opacity: 0.88;
+    margin-top: 2px;
+}
+.home-stream {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+    gap: 18px;
+    align-items: start;
+}
+.home-stream-main,
+.home-stream-side,
+.home-interact {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    min-width: 0;
+}
+.home-stream-main .home-section,
+.home-stream-side .home-section {
+    margin-bottom: 0;
+}
+.home-interact {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 18px;
+    align-items: start;
+}
+@media (max-width: 900px) {
+    .home-hero {
+        grid-template-columns: minmax(0, 1fr);
+        padding: 22px;
+    }
+    .hero-title {
+        font-size: 22px;
+    }
+    .home-stream {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+/* ==================== v3 增强：同步状态提示条 ==================== */
+.sync-status-bar {
+    position: fixed;
+    left: 50%;
+    bottom: 84px;
+    transform: translate(-50%, 20px);
+    z-index: 9998;
+    display: none;
+    align-items: center;
+    gap: 10px;
+    max-width: min(92vw, 620px);
+    padding: 10px 14px;
+    border-radius: 12px;
+    font-size: 13px;
+    line-height: 1.5;
+    color: #fff;
+    background: #374151;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+    opacity: 0;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.sync-status-bar.show {
+    display: flex;
+    opacity: 1;
+    transform: translate(-50%, 0);
+}
+.sync-status-bar.sync-ok {
+    background: #12855b;
+}
+.sync-status-bar.sync-error {
+    background: #b42318;
+}
+.sync-status-bar.sync-pending {
+    background: #8a5a00;
+}
+.sync-status-text {
+    flex: 1;
+    min-width: 0;
+    word-break: break-word;
+}
+.sync-retry-btn {
+    flex: none;
+    padding: 5px 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    background: rgba(255, 255, 255, 0.18);
+    color: #fff;
+    font-size: 12px;
+    cursor: pointer;
+    display: none;
+}
+.sync-retry-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+.sync-close-btn {
+    flex: none;
+    width: 22px;
+    height: 22px;
+    line-height: 1;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 16px;
+    cursor: pointer;
+}
+.sync-close-btn:hover {
+    background: rgba(255, 255, 255, 0.18);
+}
+@media (max-width: 600px) {
+    .sync-status-bar {
+        bottom: 76px;
+        font-size: 12px;
+    }
+}
+
+/* ==================== v3 增强：个人信息面板 ==================== */
+.profile-panel-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+    flex-wrap: wrap;
+    padding: 16px 18px;
+    margin-bottom: 16px;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    background: #f8fafc;
+}
+.profile-panel-head h2 {
+    margin: 0 0 6px;
+    font-size: 18px;
+}
+.profile-panel-head .page-tip {
+    margin: 0;
+}
+.profile-completion {
+    padding: 14px 18px;
+    margin-bottom: 18px;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    background: #fff;
+}
+.profile-completion .completion-text,
+.profile-completion .completion-label {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+.profile-completion .completion-track {
+    height: 8px;
+    border-radius: 999px;
+    background: #eef1f6;
+    overflow: hidden;
+}
+.profile-completion .completion-fill {
+    height: 100%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #4f6ef7, #7a5cf0);
+    transition: width 0.3s ease;
+}
+.profile-completion .completion-missing {
+    margin: 8px 0 0;
+    font-size: 12px;
+    color: #6b7280;
+    line-height: 1.6;
+}
+.avatar-edit-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    flex-wrap: wrap;
+}
+.avatar-edit-preview {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid #e5e7eb;
+    background: #f3f4f6;
+}
+.avatar-edit-fields {
+    flex: 1;
+    min-width: 220px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.avatar-edit-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.avatar-file-input {
+    font-size: 12px;
+    max-width: 100%;
+}
+.logout-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+}
+
+/* 深色主题适配 */
+[data-theme="dark"] .profile-panel-head,
+body[data-theme="dark"] .profile-panel-head {
+    background: #1f2330;
+    border-color: #2a2f3d;
+}
+[data-theme="dark"] .profile-completion,
+body[data-theme="dark"] .profile-completion {
+    background: #1f2330;
+    border-color: #2a2f3d;
+}
+[data-theme="dark"] .profile-completion .completion-track,
+body[data-theme="dark"] .profile-completion .completion-track {
+    background: #2a2f3d;
+}
+[data-theme="dark"] .profile-completion .completion-missing,
+body[data-theme="dark"] .profile-completion .completion-missing {
+    color: #9aa1b5;
+}
+[data-theme="dark"] .avatar-edit-preview,
+body[data-theme="dark"] .avatar-edit-preview {
+    border-color: #2a2f3d;
+    background: #262b3a;
+}
+
+/* ==================== v3 增强：补充样式 ==================== */
+/* 首屏概览左栏（文案 + 主按钮） */
+.hero-main {
+    min-width: 0;
+}
+/* 面板头部文案区（个人信息 / 账户与安全） */
+.profile-panel-head-main {
+    min-width: 0;
+    flex: 1 1 260px;
+}
+/* 幽灵按钮：低调描边样式，用于次级操作 */
+.btn-ghost {
+    background: transparent;
+    color: #475569;
+    border: 1px solid #cbd5e1;
+    box-shadow: none;
+}
+.btn-ghost:hover {
+    background: #f1f5f9;
+    color: #334155;
+}
+[data-theme="dark"] .btn-ghost,
+body[data-theme="dark"] .btn-ghost {
+    color: #cbd5e1;
+    border-color: #3a4152;
+}
+[data-theme="dark"] .btn-ghost:hover,
+body[data-theme="dark"] .btn-ghost:hover {
+    background: #262b3a;
+    color: #e2e8f0;
+}
+/* 退出登录操作行 */
+.logout-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin-top: 10px;
+}

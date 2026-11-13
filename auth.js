@@ -29,6 +29,17 @@ var MARVIS_API_BASE = (function () {
         var cloudSynced = {};   // 已从云端拉取过（或已标记）的键
         var memory = {};        // 内存缓存，避免每次读取都解析 localStorage
 
+        // 云端会话令牌：登录后由 /api/auth 签发，敏感键读写必须携带
+        function getAuthToken() {
+            try { return localStorage.getItem('siteAuthToken') || ''; } catch (e) { return ''; }
+        }
+        function authHeaders() {
+            var h = { 'Content-Type': 'application/json' };
+            var t = getAuthToken();
+            if (t) { h['x-site-token'] = t; }
+            return h;
+        }
+
         function readLocal(key) {
             if (Object.prototype.hasOwnProperty.call(memory, key)) { return memory[key]; }
             var v = null;
@@ -57,7 +68,7 @@ var MARVIS_API_BASE = (function () {
             if (cloudSynced[key]) { return; }
             cloudSynced[key] = true;
             if (typeof fetch !== 'function') { return; }
-            fetch(CLOUD_URL + '?key=' + encodeURIComponent(key))
+            fetch(CLOUD_URL + '?key=' + encodeURIComponent(key), { headers: authHeaders() })
                 .then(function (r) { return r.json(); })
                 .then(function (res) {
                     if (!res || !res.ok || res.value === null || res.value === undefined) { return; }
@@ -82,7 +93,7 @@ var MARVIS_API_BASE = (function () {
         function pushCloudOnce(key, value) {
             return fetch(CLOUD_URL, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: authHeaders(),
                 body: JSON.stringify({ key: key, value: value })
             }).then(function (r) {
                 return r.json().then(function (res) {
@@ -127,7 +138,7 @@ var MARVIS_API_BASE = (function () {
         // 任何合并 users 的动作都必须先执行它，否则旧设备本地残留账号会在补传环节复活
         function syncDeletedUsers() {
             if (typeof fetch !== 'function') { return Promise.resolve(getDeletedUsers()); }
-            return fetch(CLOUD_URL + '?key=' + encodeURIComponent('siteDeletedUsers'))
+            return fetch(CLOUD_URL + '?key=' + encodeURIComponent('siteDeletedUsers'), { headers: authHeaders() })
                 .then(function (r) { return r.json(); })
                 .then(function (res) {
                     if (!res || !res.ok || res.value === null || res.value === undefined) { return getDeletedUsers(); }
@@ -195,7 +206,16 @@ var MARVIS_API_BASE = (function () {
                 if (merged[a] && merged[a].username === 'admin') { hasAdmin = true; break; }
             }
             if (!hasAdmin) {
-                merged.push({ username: 'admin', password: 'admin', role: 'super_admin', createdAt: Date.now(), accountId: '1000' });
+                // 安全硬化：源码不再写入明文默认口令。这里只占位一个不可登录的管理员槽位，
+                // 真实管理员由服务端 /api/auth 依据 Netlify 环境变量 SITE_BOOTSTRAP_ADMIN_PASSWORD 建立
+                merged.push({
+                    username: 'admin',
+                    password: '__locked_' + Math.random().toString(36).slice(2) + Date.now().toString(36),
+                    role: 'super_admin',
+                    createdAt: Date.now(),
+                    accountId: '1000',
+                    needReset: true
+                });
             }
             writeLocal('users', JSON.stringify(merged));
             var dirty = localOnly.length > 0 || newDeleted.length !== deleted.length || tombResidue || !hasAdmin;
@@ -295,38 +315,87 @@ var MARVIS_API_BASE = (function () {
     // 暴露统一数据层，供其它页面脚本使用；保留原 IIFE/window 架构
     window.dataStore = dataStore;
 
+    // ========== 云端会话（安全登录 / 注册）==========
+    // 令牌由 Netlify Function /api/auth 用 HMAC 签发；敏感数据读写统一走 dataStore 的 authHeaders
+    window.siteAuth = (function () {
+        var AUTH_URL = MARVIS_API_BASE + '/api/auth';
+        function token() {
+            try { return localStorage.getItem('siteAuthToken') || ''; } catch (e) { return ''; }
+        }
+        function setToken(t) {
+            try {
+                if (t) { localStorage.setItem('siteAuthToken', t); }
+                else { localStorage.removeItem('siteAuthToken'); }
+            } catch (e) { /* ignore */ }
+        }
+        function call(action, payload) {
+            if (typeof fetch !== 'function') { return Promise.resolve(null); }
+            var body = { action: action };
+            if (payload) { Object.keys(payload).forEach(function (k) { body[k] = payload[k]; }); }
+            return fetch(AUTH_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            }).then(function (r) {
+                return r.json().catch(function () { return null; });
+            }).catch(function () { return null; });
+        }
+        function login(account, password) {
+            return call('login', { account: account, password: password }).then(function (res) {
+                if (res && res.ok === true && res.token) { setToken(res.token); }
+                return res;
+            });
+        }
+        function register(username, password, nickname, phone, email) {
+            return call('register', {
+                username: username,
+                password: password,
+                nickname: nickname || '',
+                phone: phone || '',
+                email: email || ''
+            }).then(function (res) {
+                if (res && res.ok === true && res.token) { setToken(res.token); }
+                return res;
+            });
+        }
+        function logout() { setToken(null); }
+        return { token: token, setToken: setToken, login: login, register: register, logout: logout, call: call };
+    })();
+
     // 页面加载完成后启动云端预取（不阻塞首屏渲染）
     if (typeof window.addEventListener === 'function') {
         window.addEventListener('load', function () { dataStore.init(); });
-        // 窗口聚焦 / 从缓存回退时重新拉取用户表并双向合并，保证后台增删改用户后刷新/多设备一致
-        window.addEventListener('focus', function () {
+
+        // 统一的多端拉取入口：先同步云端墓碑，再合并 users
+        // 目的：旧标签页/旧设备本地残留的被删账号不得补传复活；其它端的改动能被拉取覆盖到本地
+        function pullUsersFromCloud() {
             if (typeof fetch !== 'function') { return; }
-            // 先同步云端墓碑再合并 users：旧标签页/旧设备本地残留的被删账号不得补传复活
             dataStore.syncDeletedUsers()
                 .then(function () { return fetch(MARVIS_API_BASE + '/api/data?key=' + encodeURIComponent('users')); })
                 .then(function (r) { return r.json(); })
                 .then(function (res) {
                     if (res && res.ok && res.value !== null && res.value !== undefined) {
                         dataStore.mergeUsersWithCloud(typeof res.value === 'string' ? res.value : JSON.stringify(res.value));
+                        // 广播刷新事件，供各页面按需重渲染（昵称/资料在多端修改后即时可见）
+                        try {
+                            window.dispatchEvent(new CustomEvent('site-data-refreshed', { detail: { key: 'users' } }));
+                        } catch (err) { /* ignore */ }
                     }
                 })
                 .catch(function () { /* ignore */ });
-        });
-        if (typeof window.addEventListener === 'function' && typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+        }
+        window.__pullUsersFromCloud = pullUsersFromCloud;
+
+        // 窗口聚焦 / 页面可见性恢复 / 从 bfcache 回退 三种时机都重新拉取，保证跨页与多端一致
+        window.addEventListener('focus', pullUsersFromCloud);
+        if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
             document.addEventListener('visibilitychange', function () {
-                if (document.visibilityState === 'visible' && typeof fetch === 'function') {
-                    dataStore.syncDeletedUsers()
-                        .then(function () { return fetch(MARVIS_API_BASE + '/api/data?key=' + encodeURIComponent('users')); })
-                        .then(function (r) { return r.json(); })
-                        .then(function (res) {
-                            if (res && res.ok && res.value !== null && res.value !== undefined) {
-                                dataStore.mergeUsersWithCloud(typeof res.value === 'string' ? res.value : JSON.stringify(res.value));
-                            }
-                        })
-                        .catch(function () { /* ignore */ });
-                }
+                if (document.visibilityState === 'visible') { pullUsersFromCloud(); }
             });
         }
+        window.addEventListener('pageshow', function (ev) {
+            if (ev && ev.persisted) { pullUsersFromCloud(); }
+        });
     }
 
     // ========== 工具函数 ==========
@@ -391,6 +460,8 @@ var MARVIS_API_BASE = (function () {
 
     function clearSession() {
         dataStore.remove('currentUser');
+        // 同步作废云端会话令牌，避免退出后旧令牌仍可访问敏感数据
+        try { if (window.siteAuth && window.siteAuth.logout) { window.siteAuth.logout(); } } catch (e) { /* ignore */ }
     }
 
     // ========== 操作日志 ==========
@@ -682,15 +753,15 @@ var MARVIS_API_BASE = (function () {
                 return;
             }
         }
-        users.push({ username: 'admin', password: 'admin', role: 'super_admin', createdAt: Date.now(), accountId: '1000' });
-        dataStore.unmarkUserDeleted('admin'); // 内置管理员重建时同步清除墓碑，防止后续合并再次剔除
-        saveUsers(users);
+        // 安全硬化：前端不再自动创建带明文口令的默认管理员，也不再向云端推送本地占位账号
+        // （原实现会在云端存在真实管理员时把本地 admin/admin 覆盖上去）。
+        // 管理员账号由服务端 /api/auth 依据 Netlify 环境变量 SITE_BOOTSTRAP_ADMIN_PASSWORD 建立。
     })();
 
     // ========== 注册页面 ==========
     var regForm = document.getElementById('registerForm');
     if (regForm) {
-        regForm.addEventListener('submit', function (e) {
+        regForm.addEventListener('submit', async function (e) {
             e.preventDefault();
             clearError();
 
@@ -726,24 +797,18 @@ var MARVIS_API_BASE = (function () {
             if (email && isEmailTaken(users, email)) { showError('该邮箱已被注册'); return; }
 
             var newAccountId = genAccountId(users);
-            users.push({
-                username: username,
-                password: password,
-                role: 'user',
-                createdAt: Date.now(),
-                accountId: newAccountId,
-                phone: phone,
-                email: email
-            });
+
+            // 用户表写入由服务端 /api/auth register 完成（前端无 users 写权限）
+            var regRes = null;
+            try { regRes = await window.siteAuth.register(username, password, '', phone, email); } catch (errReg) { regRes = null; }
+            if (!regRes) { showError('注册服务暂时不可用，请稍后重试'); return; }
+            if (regRes.ok !== true) { showError(regRes.error || '注册失败，请稍后重试'); return; }
+            if (regRes.user && regRes.user.accountId) { newAccountId = regRes.user.accountId; }
+
             addLog('register', '新用户注册：' + username + '，账号ID：' + newAccountId);
-            dataStore.unmarkUserDeleted(username); // 同名重新注册视为恢复，清除删除墓碑
+            try { dataStore.unmarkUserDeleted(username); } catch (errTomb) { /* 同名重新注册清除墓碑失败不阻断注册 */ }
             alert('注册成功！您的账号ID：' + newAccountId + '\n请妥善保存，返回登录页面登录。');
-            var _setPromise = saveUsers(users);
-            if (_setPromise && typeof _setPromise.then === 'function') {
-                _setPromise.then(function () { window.location.href = 'login.html'; });
-            } else {
-                window.location.href = 'login.html';
-            }
+            window.location.href = 'login.html';
         });
     }
 
@@ -870,7 +935,7 @@ var MARVIS_API_BASE = (function () {
 
     var loginForm = document.getElementById('loginForm');
     if (loginForm) {
-        loginForm.addEventListener('submit', function (e) {
+        loginForm.addEventListener('submit', async function (e) {
             e.preventDefault();
             clearError();
             hideCodeNotice();
@@ -932,6 +997,12 @@ var MARVIS_API_BASE = (function () {
             var password = document.getElementById('password').value;
             if (!account || !password) { showError('请输入账号和密码'); return; }
 
+            // 云端鉴权优先：向 /api/auth 换取会话令牌，服务端为密码唯一裁判
+            // 仅在网络不可达（返回 null）时降级为本地校验，避免离线环境下无法登录
+            var cloudAuth = null;
+            try { cloudAuth = await window.siteAuth.login(account, password); } catch (errCloud) { cloudAuth = null; }
+            var cloudAuthOk = !!(cloudAuth && cloudAuth.ok === true && cloudAuth.user);
+
             // 自动识别：精确匹配 username -> accountId -> phone -> email(忽略大小写)
             for (i = 0; i < users.length; i++) {
                 if (users[i].username === account) { found = users[i]; break; }
@@ -951,10 +1022,32 @@ var MARVIS_API_BASE = (function () {
                     if (users[i].email && users[i].email.toLowerCase() === account.toLowerCase()) { found = users[i]; break; }
                 }
             }
-            if (!found || found.password !== password) {
-                addLog('login_fail', '登录失败：' + account);
-                showError('账号或密码错误');
-                return;
+            if (!cloudAuthOk) {
+                if (cloudAuth && cloudAuth.ok === false && cloudAuth.error) {
+                    addLog('login_fail', '登录失败：' + account);
+                    showError(cloudAuth.error || '账号或密码错误');
+                    return;
+                }
+                // 云端不可达：降级本地校验
+                if (!found || found.password !== password) {
+                    addLog('login_fail', '登录失败：' + account);
+                    showError('账号或密码错误');
+                    return;
+                }
+            } else {
+                // 云端已认证：本地无该用户（新设备/脱敏缓存）时用云端身份构造会话；
+                // 已有本地记录则以云端角色为准，防止本地篡改提权
+                if (!found) {
+                    found = {
+                        username: cloudAuth.user.username,
+                        role: cloudAuth.user.role || 'user',
+                        accountId: cloudAuth.user.accountId || '',
+                        nickname: cloudAuth.user.nickname || '',
+                        createdAt: Date.now()
+                    };
+                } else {
+                    found.role = cloudAuth.user.role || found.role;
+                }
             }
 
             // 先确保账号补发，再写入会话快照，保证会话中的账号ID与用户表一致
@@ -975,7 +1068,7 @@ var MARVIS_API_BASE = (function () {
     function renderWelcomeBanner(session, fullUser) {
         if (!welcomeEl) return;
         ensureAccountId(fullUser);
-        var displayName = (fullUser && fullUser.nickname) || session.username;
+        var displayName = (fullUser && fullUser.nickname && String(fullUser.nickname).trim()) || session.username;
         welcomeEl.textContent = '欢迎回来，' + displayName + '！';
         var dateEl = document.getElementById('welcomeDate');
         if (dateEl) dateEl.textContent = '今天是 ' + todayStr();
@@ -1016,6 +1109,7 @@ var MARVIS_API_BASE = (function () {
             'profileLink': logged ? 'inline-block' : 'none',
             'drawerProfileLink': logged ? 'block' : 'none',
             'drawerProfileLinkNav': logged ? 'block' : 'none',
+            'drawerSecurityLink': logged ? 'block' : 'none',
             'bottomProfileLink': logged ? 'inline-block' : 'none',
             'logoutBtn': logged ? 'inline-block' : 'none',
             'drawerLogoutBtn': logged ? 'block' : 'none'
@@ -1024,6 +1118,14 @@ var MARVIS_API_BASE = (function () {
             if (!Object.prototype.hasOwnProperty.call(showMap, id)) continue;
             var el = document.getElementById(id);
             if (el) el.style.display = showMap[id];
+        }
+        // 需求④：个人信息页的退出登录入口统一收口到「账户与安全」面板，顶栏与抽屉不再露出
+        if (document.getElementById('profileForm') && document.getElementById('panel-security')) {
+            var hideIds = ['logoutBtn', 'drawerLogoutBtn'];
+            for (var hi = 0; hi < hideIds.length; hi++) {
+                var hideEl = document.getElementById(hideIds[hi]);
+                if (hideEl) hideEl.style.display = 'none';
+            }
         }
         // 管理后台入口：仅管理员可见（登录后按角色判定）
         var adminLinkEl = document.getElementById('adminLink');
@@ -1356,7 +1458,7 @@ var MARVIS_API_BASE = (function () {
             else if (item.status === 'resolved') statusBadge = '<span class="status-badge status-resolved">已解决</span>';
             else if (item.status === 'rejected') statusBadge = '<span class="status-badge status-rejected">已驳回</span>';
             html += '<div class="feedback-item"><div class="feedback-head">' +
-                '<span class="feedback-author">' + escapeHtml(item.author || '匿名') + '</span>' +
+                '<span class="feedback-author">' + escapeHtml(window.displayNameOf(item.author || '')) + '</span>' +
                 '<span class="feedback-time">' + escapeHtml(item.time || '') + '</span>' +
                 statusBadge + '</div>' +
                 '<h4 class="feedback-title">' + escapeHtml(item.title) + '</h4>' +
@@ -1388,7 +1490,7 @@ var MARVIS_API_BASE = (function () {
         }
         var total = getVisitLog().length;
         el.innerHTML = '<span class="visit-info"><span class="visit-label">访客足迹</span> 累计 ' + total + ' 次访问' +
-            (session && session.username ? '，欢迎回来，' + escapeHtml(session.username) : '，登录可记录你的足迹') +
+            (session && session.username ? '，欢迎回来，' + escapeHtml(window.displayNameOf(session.username)) : '，登录可记录你的足迹') +
             '<span class="visit-avatars">' + avatars + '</span></span>';
     }
 
@@ -1404,7 +1506,7 @@ var MARVIS_API_BASE = (function () {
             var item = list[i];
             html += '<div class="guestbook-item"><span class="guestbook-avatar">' + escapeHtml((item.author || '客').charAt(0).toUpperCase()) + '</span>' +
                 '<div class="guestbook-main"><div class="guestbook-head">' +
-                '<span class="guestbook-author">' + escapeHtml(item.author || '匿名') + '</span>' +
+                '<span class="guestbook-author">' + escapeHtml(window.displayNameOf(item.author || '')) + '</span>' +
                 '<span class="guestbook-time">' + escapeHtml(item.time || '') + '</span></div>' +
                 '<div class="guestbook-text">' + escapeHtml(item.text || '') + '</div></div></div>';
         }
@@ -1567,7 +1669,7 @@ var MARVIS_API_BASE = (function () {
             var faved = favs.indexOf(item.id) !== -1;
             html += '<div class="content-card" data-content-id="' + item.id + '"><div class="content-card-head">' +
                 '<span class="content-card-title">' + escapeHtml(item.title) + (item.status === 'pinned' ? '<span class="pin-badge">置顶</span>' : '') + '</span>' +
-                '<span class="content-card-meta">' + escapeHtml(item.author) + ' · ' + escapeHtml(item.time || '') + '</span></div>' +
+                '<span class="content-card-meta">' + escapeHtml(window.displayNameOf(item.author)) + ' · ' + escapeHtml(item.time || '') + '</span></div>' +
                 '<p class="content-card-body">' + escapeHtml(item.body) + '</p>' +
                 '<div class="content-card-actions">' +
                 '<button class="btn btn-secondary btn-xs like-btn" data-id="' + item.id + '">' + (liked ? '已赞' : '点赞') + ' (' + likes + ')</button>' +
@@ -1769,7 +1871,7 @@ var MARVIS_API_BASE = (function () {
             var item = matched[j];
             html += '<div class="favorite-item"><div class="content-card-head">' +
                 '<span class="content-card-title">' + escapeHtml(item.title) + '</span>' +
-                '<span class="content-card-meta">' + escapeHtml(item.author) + ' · ' + escapeHtml(item.time || '') + '</span></div>' +
+                '<span class="content-card-meta">' + escapeHtml(window.displayNameOf(item.author)) + ' · ' + escapeHtml(item.time || '') + '</span></div>' +
                 '<p class="content-card-body">' + escapeHtml(item.body) + '</p>' +
                 '<button class="btn btn-danger btn-xs fav-remove-btn" data-id="' + item.id + '">取消收藏</button></div>';
         }
@@ -1917,7 +2019,7 @@ var MARVIS_API_BASE = (function () {
             }
             saveUsers(users);
             addLog('profile', '用户资料更新：' + currentUsername);
-            alert('个人信息保存成功！');
+            if (window.showToast) { window.showToast('个人信息已保存，正在同步云端…', 'info'); }
             updateAvatarPreview(avatarUrl);
             updateProfileCompletion(savedProfileUser);
         });
@@ -3064,7 +3166,7 @@ function renderFavoritesEx() {
         var liked = isContentLikedBy(item.id, s.username);
         html += '<div class="favorite-ex-item">' +
             '<div class="favorite-ex-main"><a class="history-title" href="javascript:void(0)" onclick="window.openContentDetail(' + item.id + ')">' + escapeHtml(item.title) + '</a>' +
-            '<span class="history-time">' + escapeHtml(item.author) + ' · ' + escapeHtml(item.time || '') + '</span></div>' +
+            '<span class="history-time">' + escapeHtml(window.displayNameOf(item.author)) + ' · ' + escapeHtml(item.time || '') + '</span></div>' +
             '<div class="favorite-ex-actions">' +
             '<button class="btn btn-secondary btn-xs" onclick="window.toggleReadLater(' + item.id + ')">稍后读</button> ' +
             '<button class="btn btn-danger btn-xs" onclick="window.removeFavoriteContent(' + item.id + ')">取消收藏</button>' +
@@ -3285,9 +3387,10 @@ function getPublicProfile(username) {
     var albums = getSiteAlbums().filter(function (al) { return al.owner === username; }).slice(0, 6);
     return {
         user: u,
-        nickname: u.nickname || username,
+        nickname: (u.nickname && String(u.nickname).trim()) || username,
         bio: u.bio || '这个人很懒，什么都没写~',
-        avatar: u.avatar || '',
+        // 头像字段兼容：现网资料写入 avatarUrl，历史数据可能为 avatar
+        avatar: u.avatarUrl || u.avatar || '',
         follows: getFollowCounts(username).follows,
         fans: getFollowCounts(username).fans,
         friends: _getFriendList(username).length,
@@ -3492,13 +3595,12 @@ if (isAdminPage) {
     }
 }
 
-// ========== 跨标签页实时同步 ==========
-// 其它标签页修改 users / currentUser 时，本页自动刷新用户信息，保证实时一致
-window.addEventListener('storage', function (e) {
-    if (!e || (e.key !== 'users' && e.key !== 'currentUser')) return;
+// ========== 跨标签页 / 多端实时同步 ==========
+// 触发源：其它标签页写 localStorage（storage 事件）、本页聚焦或可见性恢复时从云端拉到新数据（site-data-refreshed）
+function applyUserDataChange(source) {
     var session = getSession();
     if (!session) return;
-    // index.html 首页横幅同步
+    // index.html 首页横幅同步（昵称优先展示）
     if (welcomeEl) {
         var fullUser = findUserByUsername(getUsers(), session.username);
         renderWelcomeBanner(session, fullUser);
@@ -3508,10 +3610,13 @@ window.addEventListener('storage', function (e) {
         var activeEl = document.activeElement;
         var isEditing = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'SELECT');
         if (isEditing) {
-            console.log('用户信息已在其它页面更新，为避免覆盖当前输入，请保存后刷新查看最新资料');
+            if (window.__SITE_DEBUG__) { console.log('用户信息已在其它端更新，为避免覆盖当前输入，请保存后刷新查看最新资料'); }
         } else {
             loadProfile(session.username);
             updateSecurityBindings();
+            if (typeof window.refreshProfileCompletion === 'function') {
+                try { window.refreshProfileCompletion(); } catch (err) { /* ignore */ }
+            }
         }
     }
     // admin.html 管理后台同步：刷新用户列表与仪表盘统计
@@ -3519,6 +3624,13 @@ window.addEventListener('storage', function (e) {
         renderUsersTable();
         loadDashboardStats();
     }
+}
+window.addEventListener('storage', function (e) {
+    if (!e || (e.key !== 'users' && e.key !== 'currentUser')) return;
+    applyUserDataChange('storage');
+});
+window.addEventListener('site-data-refreshed', function () {
+    applyUserDataChange('cloud');
 });
 })();
 function getContents() {
@@ -4179,7 +4291,7 @@ window.adminWipeAllUsers = function () {
     function postCloud(key, value) {
         return fetch(CLOUD_URL, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: window.siteAuth && window.siteAuth.token ? { 'Content-Type': 'application/json', 'x-site-token': window.siteAuth.token() || '' } : { 'Content-Type': 'application/json' },
             body: JSON.stringify({ key: key, value: value })
         }).then(function (r) { return r.json(); });
     }
@@ -4341,6 +4453,10 @@ window.viewUserDetail = function(username) {
                     '<p><strong>账号：</strong>' + (user.accountId || '未分配') + '</p>' +
                     '<p><strong>注册时间：</strong>' + new Date(user.createdAt).toLocaleString('zh-CN') + '</p>' +
                     '<p><strong>邮箱：</strong>' + (user.email || '-') + '</p>' +
+                    '<p><strong>签名：</strong>' + (user.signature || '-') + '</p>' +
+                    '<p><strong>性别：</strong>' + (user.gender || '-') + '</p>' +
+                    '<p><strong>生日：</strong>' + (user.birthday || '-') + '</p>' +
+                    '<p><strong>地区：</strong>' + (user.location || user.region || '-') + '</p>' +
                     '<p><strong>个人简介：</strong>' + (user.bio || '-') + '</p>' +
                     '<p><strong>头像URL：</strong>' + (user.avatarUrl || '-') + '</p>';
     openModal('userDetailModal');
@@ -5163,7 +5279,7 @@ function openMessageModal() {
         select.innerHTML = '<option value="all">所有用户</option>';
         users.forEach(function(u) {
             if (u.username !== getSession().username) {
-                select.innerHTML += '<option value="' + u.username + '">' + u.username + '</option>';
+                select.innerHTML += '<option value="' + u.username + '">' + escapeHtml(window.displayNameOf(u.username)) + '</option>';
             }
         });
     }
@@ -6413,3 +6529,634 @@ window.exportGuestbookList = function() {
     addLog('export_guestbook', '导出留言 CSV');
 };
 
+/* ==================== v3 增强模块：昵称工具 + 同步中心 + 个人资料 V2（纯增量，不改变既有数据格式） ==================== */
+(function () {
+    'use strict';
+
+    var API_BASE = '';
+    try {
+        if (typeof window.MARVIS_API_BASE === 'string') { API_BASE = window.MARVIS_API_BASE; }
+        else if (typeof MARVIS_API_BASE !== 'undefined') { API_BASE = MARVIS_API_BASE; }
+    } catch (e) { API_BASE = ''; }
+    var CLOUD_URL = API_BASE + '/api/data';
+    var PENDING_KEY = 'siteSyncPending';
+
+    /* ================== 一、昵称工具：全站展示优先昵称，缺省回退用户名 ================== */
+    var nickCache = { at: 0, map: null };
+
+    function buildNickMap() {
+        var now = Date.now();
+        if (nickCache.map && (now - nickCache.at) < 800) { return nickCache.map; }
+        var map = {};
+        var users = [];
+        try { users = (window.getUsers ? window.getUsers() : []) || []; } catch (e) { users = []; }
+        for (var i = 0; i < users.length; i++) {
+            var u = users[i] || {};
+            if (!u.username) { continue; }
+            var nick = String(u.nickname === undefined || u.nickname === null ? '' : u.nickname).trim();
+            map[u.username] = nick || u.username;
+        }
+        nickCache.at = now;
+        nickCache.map = map;
+        return map;
+    }
+
+    function nicknameOf(target) {
+        if (target && typeof target === 'object') {
+            var n = String(target.nickname === undefined || target.nickname === null ? '' : target.nickname).trim();
+            return n || target.username || '匿名';
+        }
+        var name = String(target === undefined || target === null ? '' : target).trim();
+        if (!name) { return '匿名'; }
+        var map = buildNickMap();
+        return map[name] || name;
+    }
+
+    function clearNickCache() { nickCache.at = 0; nickCache.map = null; }
+
+    window.nicknameOf = nicknameOf;
+    window.displayNameOf = nicknameOf;
+    window.clearNickCache = clearNickCache;
+
+    /* ================== 二、同步中心：写后云端回读 + 可见提示 + 重试 ================== */
+    var listeners = [];
+    var state = { status: 'idle', msg: '', at: 0 };
+    var bar = null;
+    var hideTimer = null;
+
+    var LABELS = {
+        users: '账号资料',
+        currentUser: '登录状态',
+        siteGuestbook: '访客留言',
+        announcements: '公告通知',
+        siteFeedbacks: '用户反馈',
+        siteMoments: '动态广场',
+        siteContents: '内容',
+        sitePolls: '投票问卷',
+        siteAlbums: '相册',
+        siteDeletedUsers: '账号删除记录'
+    };
+    function labelOf(key) { return LABELS[key] || key; }
+
+    function readPending() {
+        try { var v = JSON.parse(localStorage.getItem(PENDING_KEY) || '[]'); return Array.isArray(v) ? v : []; } catch (e) { return []; }
+    }
+    function writePending(list) {
+        try { localStorage.setItem(PENDING_KEY, JSON.stringify(list)); } catch (e) { /* ignore */ }
+    }
+    function markPending(key, value) {
+        var list = readPending();
+        var next = [];
+        for (var i = 0; i < list.length; i++) { if (list[i] && list[i].key !== key) { next.push(list[i]); } }
+        next.push({ key: key, value: value, at: Date.now() });
+        if (next.length > 30) { next = next.slice(next.length - 30); }
+        writePending(next);
+    }
+    function clearPending(key) {
+        var list = readPending();
+        var next = [];
+        for (var i = 0; i < list.length; i++) { if (list[i] && list[i].key !== key) { next.push(list[i]); } }
+        if (next.length !== list.length) { writePending(next); }
+    }
+
+    function ensureBar() {
+        if (bar && document.body && document.body.contains(bar)) { return bar; }
+        if (!document.body) { return null; }
+        bar = document.createElement('div');
+        bar.className = 'sync-status-bar';
+        bar.id = 'syncStatusBar';
+        bar.setAttribute('role', 'status');
+        bar.setAttribute('aria-live', 'polite');
+
+        var text = document.createElement('span');
+        text.className = 'sync-status-text';
+        bar.appendChild(text);
+
+        var retryBtn = document.createElement('button');
+        retryBtn.type = 'button';
+        retryBtn.className = 'sync-retry-btn';
+        retryBtn.textContent = '重试同步';
+        retryBtn.addEventListener('click', function () { retry(); });
+        bar.appendChild(retryBtn);
+
+        var closeBtn = document.createElement('button');
+        closeBtn.type = 'button';
+        closeBtn.className = 'sync-close-btn';
+        closeBtn.setAttribute('aria-label', '关闭提示');
+        closeBtn.innerHTML = '&times;';
+        closeBtn.addEventListener('click', function () { bar.classList.remove('show'); });
+        bar.appendChild(closeBtn);
+
+        document.body.appendChild(bar);
+        return bar;
+    }
+
+    function setStatus(status, msg) {
+        state.status = status;
+        state.msg = msg || '';
+        state.at = Date.now();
+        if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
+        var el = ensureBar();
+        if (!el) { return; }
+        el.className = 'sync-status-bar show sync-' + status;
+        var textEl = el.querySelector('.sync-status-text');
+        if (textEl) { textEl.textContent = msg || (status === 'ok' ? '已同步到云端' : '同步异常'); }
+        var retryBtn = el.querySelector('.sync-retry-btn');
+        if (retryBtn) { retryBtn.style.display = (status === 'error') ? 'inline-block' : 'none'; }
+        if (status === 'ok' || status === 'pending') {
+            hideTimer = setTimeout(function () {
+                if (bar) { bar.classList.remove('show'); }
+            }, status === 'ok' ? 2400 : 60000);
+        }
+        emit('status', { status: status, msg: state.msg });
+    }
+
+    function on(event, cb) { if (typeof cb === 'function') { listeners.push({ e: event, cb: cb }); } }
+    function emit(event, payload) {
+        for (var i = 0; i < listeners.length; i++) {
+            if (listeners[i].e === event || listeners[i].e === '*') {
+                try { listeners[i].cb(payload); } catch (e) { /* ignore */ }
+            }
+        }
+    }
+
+    // 跨标签 / 跨页面即时同步：BroadcastChannel 优先，收到后复用既有 storage 事件刷新链路
+    var channel = null;
+    try { if (typeof BroadcastChannel === 'function') { channel = new BroadcastChannel('site-sync'); } } catch (e) { channel = null; }
+
+    function broadcast(key, value) {
+        if (!channel) { return; }
+        try { channel.postMessage({ key: key, value: value, at: Date.now() }); } catch (e) { /* ignore */ }
+    }
+
+    if (channel) {
+        channel.onmessage = function (ev) {
+            var d = ev && ev.data;
+            if (!d || !d.key) { return; }
+            if (d.key === 'users') { clearNickCache(); }
+            try {
+                var val = (typeof d.value === 'string') ? d.value : JSON.stringify(d.value);
+                window.dispatchEvent(new StorageEvent('storage', { key: d.key, newValue: val, url: location.href }));
+            } catch (e) { /* 不支持 StorageEvent 构造时降级 */ }
+            emit('remote', d);
+        };
+    }
+
+    function normalize(v) {
+        if (v === null || v === undefined) { return ''; }
+        return (typeof v === 'string' ? v : JSON.stringify(v)).trim();
+    }
+
+    function fetchCloud(key) {
+        if (typeof fetch !== 'function') { return Promise.reject(new Error('fetch unavailable')); }
+        return fetch(CLOUD_URL + '?key=' + encodeURIComponent(key) + '&_t=' + Date.now(), {
+            cache: 'no-store',
+            headers: { 'x-site-token': (window.siteAuth && window.siteAuth.token) ? (window.siteAuth.token() || '') : '' }
+        })
+            .then(function (r) { return r.json(); })
+            .then(function (res) {
+                if (!res || res.ok !== true) { throw new Error('cloud read rejected: ' + key); }
+                if (res.value === null || res.value === undefined) { return ''; }
+                return (typeof res.value === 'string') ? res.value : JSON.stringify(res.value);
+            });
+    }
+
+    // 云端回读比对：只有回读值与本地期望一致才算真正落盘
+    // 出现不一致时延迟重读一次，避免与串行写队列/其它标签页写入产生瞬时误判
+    function verify(key, expect) {
+        var want = normalize(expect);
+        function attempt(remain) {
+            return fetchCloud(key).then(function (got) {
+                if (normalize(got) === want) {
+                    clearPending(key);
+                    setStatus('ok', '「' + labelOf(key) + '」已同步到云端');
+                    return { ok: true, same: true, key: key };
+                }
+                if (remain > 0) {
+                    return new Promise(function (resolve) { setTimeout(resolve, 700); })
+                        .then(function () { return attempt(remain - 1); });
+                }
+                markPending(key, want);
+                setStatus('error', '「' + labelOf(key) + '」云端与本地不一致，请重试同步');
+                return { ok: false, same: false, key: key };
+            }, function () {
+                if (remain > 0) {
+                    return new Promise(function (resolve) { setTimeout(resolve, 700); })
+                        .then(function () { return attempt(remain - 1); });
+                }
+                markPending(key, want);
+                setStatus('error', '「' + labelOf(key) + '」无法写入云端，数据已保存在本机');
+                return { ok: false, same: false, key: key };
+            });
+        }
+        return attempt(1);
+    }
+
+    function setAndVerify(key, value) {
+        var ds = window.dataStore;
+        var p = (ds && typeof ds.set === 'function') ? ds.set(key, value) : Promise.resolve({ ok: false });
+        return p.then(function (res) {
+            if (!res || res.ok !== true) {
+                markPending(key, value);
+                setStatus('error', '「' + labelOf(key) + '」云端写入失败，数据已保存在本机');
+                return { ok: false, stage: 'write', key: key };
+            }
+            return verify(key, value).then(function (v) {
+                return { ok: v.ok, stage: v.ok ? 'verified' : 'verify', key: key };
+            });
+        }, function () {
+            markPending(key, value);
+            setStatus('error', '「' + labelOf(key) + '」云端写入失败，数据已保存在本机');
+            return { ok: false, stage: 'write', key: key };
+        });
+    }
+
+    function retry() {
+        var list = readPending();
+        if (!list.length) {
+            setStatus('ok', '没有待同步的数据');
+            return Promise.resolve({ ok: true, retried: 0, left: 0 });
+        }
+        setStatus('pending', '正在重试同步 ' + list.length + ' 项…');
+        var ds = window.dataStore;
+        var chain = Promise.resolve();
+        var okCount = 0;
+        for (var i = 0; i < list.length; i++) {
+            (function (item) {
+                chain = chain.then(function () {
+                    if (!item || !item.key || !ds || typeof ds.set !== 'function') { return; }
+                    var p = ds.set(item.key, item.value);
+                    return (p && typeof p.then === 'function' ? p : Promise.resolve()).then(function (r) {
+                        if (r && r.ok === true) { okCount++; clearPending(item.key); }
+                    }, function () { /* 保留待同步 */ });
+                });
+            })(list[i]);
+        }
+        return chain.then(function () {
+            var left = readPending().length;
+            if (left) { setStatus('error', '仍有 ' + left + ' 项未同步，可稍后重试'); }
+            else { setStatus('ok', '同步已完成，共 ' + okCount + ' 项'); }
+            return { ok: left === 0, retried: list.length, success: okCount, left: left };
+        });
+    }
+
+    // 包装 dataStore.set：写入结果可感知，云端失败自动登记待同步并弹出提示
+    function hookDataStore() {
+        var ds = window.dataStore;
+        if (!ds || typeof ds.set !== 'function' || ds.__syncHooked) { return !!ds; }
+        ds.__syncHooked = true;
+        var origSet = ds.set;
+        ds.set = function (key, value) {
+            var ret = origSet.apply(ds, arguments);
+            var promise = (ret && typeof ret.then === 'function') ? ret : Promise.resolve({ ok: true, local: true });
+            promise.then(function (res) {
+                if (res && res.ok === true) {
+                    clearPending(key);
+                    broadcast(key, value);
+                } else {
+                    markPending(key, value);
+                    setStatus('error', '「' + labelOf(key) + '」云端同步失败，数据已保存在本机');
+                }
+            }, function () {
+                markPending(key, value);
+                setStatus('error', '「' + labelOf(key) + '」云端同步失败，数据已保存在本机');
+            });
+            return promise;
+        };
+        return true;
+    }
+
+    /* ================== 三、个人资料 V2：字段保存 + 完成度 + 退出登录 ================== */
+    var PROFILE_FIELDS = ['nickname', 'avatarUrl', 'signature', 'gender', 'birthday', 'location', 'bio', 'email', 'phone', 'realName', 'school', 'company'];
+
+    function currentUserObject() {
+        var s = window.getSession ? window.getSession() : null;
+        if (!s || !s.username) { return null; }
+        var users = window.getUsers ? (window.getUsers() || []) : [];
+        for (var i = 0; i < users.length; i++) { if (users[i] && users[i].username === s.username) { return users[i]; } }
+        return null;
+    }
+
+    function computeCompletion(user) {
+        if (!user) { return { percent: 0, done: 0, total: PROFILE_FIELDS.length, missing: PROFILE_FIELDS.slice(0) }; }
+        var total = PROFILE_FIELDS.length;
+        var done = 0;
+        var missing = [];
+        for (var i = 0; i < total; i++) {
+            var v = user[PROFILE_FIELDS[i]];
+            if (v !== undefined && v !== null && String(v).trim() !== '') { done++; } else { missing.push(PROFILE_FIELDS[i]); }
+        }
+        return { percent: Math.round(done / total * 100), done: done, total: total, missing: missing };
+    }
+
+    var FIELD_LABELS = {
+        nickname: '昵称', avatarUrl: '头像', signature: '个性签名', gender: '性别', birthday: '生日',
+        location: '所在地区', bio: '个人简介', email: '邮箱', phone: '手机号', realName: '真实姓名', school: '学校', company: '单位'
+    };
+
+    function renderCompletion() {
+        var box = document.getElementById('profileCompletionV2');
+        if (!box) { return; }
+        var user = currentUserObject();
+        var r = computeCompletion(user);
+        var fill = box.querySelector('.completion-fill');
+        var text = box.querySelector('.completion-text');
+        var miss = box.querySelector('.completion-missing');
+        if (fill) { fill.style.width = r.percent + '%'; }
+        if (text) { text.textContent = '资料完成度 ' + r.percent + '%（已填写 ' + r.done + '/' + r.total + ' 项）'; }
+        if (miss) {
+            if (r.missing.length) {
+                var names = [];
+                for (var i = 0; i < r.missing.length; i++) { names.push(FIELD_LABELS[r.missing[i]] || r.missing[i]); }
+                miss.textContent = '待完善：' + names.join('、');
+            } else { miss.textContent = '资料已完善，感谢你的填写'; }
+        }
+    }
+
+    function fillProfileFields() {
+        var user = currentUserObject();
+        if (!user) { return; }
+        var map = {
+            profileSignature: user.signature || '',
+            profileRealName: user.realName || '',
+            profileSchool: user.school || '',
+            profileCompany: user.company || ''
+        };
+        for (var id in map) {
+            if (!Object.prototype.hasOwnProperty.call(map, id)) { continue; }
+            var el = document.getElementById(id);
+            if (el && !el.dataset.touched) { el.value = map[id]; }
+        }
+        renderCompletion();
+    }
+
+    // 汇总个人信息全部字段（昵称、头像、签名、性别、生日、地区、简介等），
+    // 一次性写入并做云端回读校验，避免部分字段只落本地造成多端不一致
+    function collectExtraFields() {
+        var patch = {};
+        function val(id) {
+            var el = document.getElementById(id);
+            return el ? String(el.value || '').trim() : null;
+        }
+        var v;
+        v = val('profileNickname');
+        if (v !== null) { patch.nickname = v.substring(0, 20); }
+        v = val('profileAvatarUrl');
+        if (v !== null) { patch.avatarUrl = v; }
+        v = val('profileSignature');
+        if (v !== null) { patch.signature = v; }
+        v = val('profileGender');
+        if (v !== null) { patch.gender = v; }
+        v = val('profileBirthday');
+        if (v !== null) { patch.birthday = v; }
+        v = val('profileLocation');
+        if (v !== null) { patch.location = v; }
+        v = val('profileBio');
+        if (v !== null) { patch.bio = v; }
+        v = val('profileEmail');
+        if (v !== null) { patch.email = v; }
+        v = val('profilePhone');
+        if (v !== null) { patch.phone = v; }
+        v = val('profileRealName');
+        if (v !== null) { patch.realName = v; }
+        v = val('profileSchool');
+        if (v !== null) { patch.school = v; }
+        v = val('profileCompany');
+        if (v !== null) { patch.company = v; }
+        patch.profileUpdatedAt = Date.now();
+        return patch;
+    }
+
+    function saveProfilePatch(username, patch) {
+        var users = window.getUsers ? (window.getUsers() || []) : [];
+        var target = null;
+        for (var i = 0; i < users.length; i++) { if (users[i] && users[i].username === username) { target = users[i]; break; } }
+        if (!target) { return Promise.resolve({ ok: false, reason: 'no-user' }); }
+        for (var k in patch) { if (Object.prototype.hasOwnProperty.call(patch, k)) { target[k] = patch[k]; } }
+        var ret = window.saveUsers ? window.saveUsers(users) : null;
+        clearNickCache();
+        var after = (ret && typeof ret.then === 'function') ? ret : Promise.resolve(null);
+        return after.then(function (res) {
+            if (res && res.ok === false) {
+                markPending('users', null);
+                setStatus('error', '账号资料未能写入云端，数据已保存在本机');
+                return { ok: false, stage: 'write' };
+            }
+            var actual = null;
+            try { actual = window.dataStore.get('users'); } catch (e) { actual = null; }
+            return verify('users', actual === null ? JSON.stringify(users) : actual);
+        }, function () {
+            setStatus('error', '账号资料同步失败，数据已保存在本机');
+            return { ok: false, stage: 'write' };
+        });
+    }
+
+    function initProfileV2() {
+        var form = document.getElementById('profileForm');
+        if (!form) { return; }
+
+        fillProfileFields();
+        renderCompletion();
+
+        // 需求④：退出登录入口统一收口到「账户与安全」，个人信息页顶栏/抽屉不再重复露出
+        ['logoutBtn', 'drawerLogoutBtn'].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) { el.style.display = 'none'; }
+        });
+
+        // 旧版完成度条与新完成度卡片重复，隐藏旧版（其原生更新逻辑继续运行，不影响数据）
+        var legacyCompletion = document.querySelector('.completion-wrap');
+        if (legacyCompletion) { legacyCompletion.style.display = 'none'; }
+
+        // 新增字段标记“已编辑”，避免云端刷新回填覆盖用户正在输入的内容
+        var extraIds = ['profileSignature', 'profileRealName', 'profileSchool', 'profileCompany'];
+        for (var i = 0; i < extraIds.length; i++) {
+            (function (id) {
+                var el = document.getElementById(id);
+                if (!el) { return; }
+                el.addEventListener('input', function () { el.dataset.touched = '1'; renderCompletion(); });
+            })(extraIds[i]);
+        }
+
+        // 原有提交逻辑先执行（保存既有字段），随后追加 V2 字段并做云端回读校验
+        form.addEventListener('submit', function () {
+            var s = window.getSession ? window.getSession() : null;
+            if (!s || !s.username) { return; }
+            setTimeout(function () {
+                var patch = collectExtraFields();
+                saveProfilePatch(s.username, patch).then(function (r) {
+                    renderCompletion();
+                    if (r && r.ok) {
+                        if (window.showToast) { window.showToast('资料已保存并同步到云端', 'success'); }
+                    } else if (window.showToast) {
+                        window.showToast('资料已保存在本机，云端同步失败，可在右下角重试', 'warning');
+                    }
+                });
+            }, 0);
+        }, false);
+
+        // 头像本地选择：读取后压缩为 dataURL 存入 avatarUrl，复用原有字段，不新增存储结构
+        var avatarInput = document.getElementById('profileAvatarFile');
+        if (avatarInput) {
+            avatarInput.addEventListener('change', function () {
+                var file = avatarInput.files && avatarInput.files[0];
+                if (!file) { return; }
+                if (!/^image\//.test(file.type)) {
+                    if (window.showToast) { window.showToast('请选择图片文件', 'warning'); }
+                    avatarInput.value = '';
+                    return;
+                }
+                if (file.size > 2 * 1024 * 1024) {
+                    if (window.showToast) { window.showToast('头像请控制在 2MB 以内', 'warning'); }
+                    avatarInput.value = '';
+                    return;
+                }
+                var reader = new FileReader();
+                reader.onload = function () {
+                    var img = new Image();
+                    img.onload = function () {
+                        var maxSize = 240;
+                        var scale = Math.min(1, maxSize / Math.max(img.width, img.height));
+                        var w = Math.max(1, Math.round(img.width * scale));
+                        var h = Math.max(1, Math.round(img.height * scale));
+                        var canvas = document.createElement('canvas');
+                        canvas.width = w;
+                        canvas.height = h;
+                        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+                        var dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+                        var urlInput = document.getElementById('profileAvatarUrl');
+                        if (urlInput) { urlInput.value = dataUrl; }
+                        var preview = document.getElementById('profileAvatarPreview');
+                        if (preview) { preview.src = dataUrl; preview.style.display = 'block'; }
+                        if (window.showToast) { window.showToast('头像已选择，保存后生效', 'info'); }
+                    };
+                    img.onerror = function () {
+                        if (window.showToast) { window.showToast('图片解析失败，请换一张试试', 'warning'); }
+                    };
+                    img.src = String(reader.result || '');
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        // 退出登录：仅出现在「账户与安全」独立面板
+        var logoutBtn = document.getElementById('profileLogoutBtn');
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', function () {
+                if (!window.confirm('确定要退出当前账号吗？')) { return; }
+                try { if (window.dataStore) { window.dataStore.remove('currentUser'); } } catch (e) { /* ignore */ }
+                try { localStorage.removeItem('currentUser'); } catch (e) { /* ignore */ }
+                if (window.addLog) { try { window.addLog('logout', '用户退出登录'); } catch (e) { /* ignore */ } }
+                location.href = 'login.html';
+            });
+        }
+
+        // 独立入口：账号与安全 / 个人信息 互跳（避免同一页面内两个面板混淆）
+        var gotoBtns = document.querySelectorAll('[data-goto-panel]');
+        for (var g = 0; g < gotoBtns.length; g++) {
+            gotoBtns[g].addEventListener('click', function () {
+                var target = this.getAttribute('data-goto-panel');
+                var tab = document.querySelector('.tab-btn[data-tab="' + target + '"]');
+                if (tab) { tab.click(); }
+                var panel = document.getElementById('panel-' + target);
+                if (panel && panel.scrollIntoView) { panel.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+            });
+        }
+    }
+
+    /* ================== 四、暴露 API 与启动 ================== */
+    window.SiteSync = {
+        set: setAndVerify,
+        verify: verify,
+        retry: retry,
+        pending: readPending,
+        on: on,
+        pull: fetchCloud,
+        broadcast: broadcast,
+        nicknameOf: nicknameOf,
+        completion: function () { return computeCompletion(currentUserObject()); },
+        saveProfileFields: saveProfilePatch
+    };
+
+    // 供跨标签页 / 多端同步时主动刷新资料完成度卡片
+    window.refreshProfileCompletion = function () { renderCompletion(); };
+
+    var hookTries = 0;
+    function bootHook() {
+        if (hookDataStore()) { return; }
+        if (hookTries++ < 20) { setTimeout(bootHook, 150); }
+    }
+
+    function boot() {
+        bootHook();
+        initProfileV2();
+        var left = readPending().length;
+        if (left > 0) { setStatus('error', '有 ' + left + ' 项数据待同步，点击重试'); }
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function () { setTimeout(boot, 0); });
+    } else {
+        setTimeout(boot, 0);
+    }
+
+    window.addEventListener('load', function () { bootHook(); initProfileV2(); });
+
+    // 网络恢复后自动补同步
+    window.addEventListener('online', function () {
+        if (readPending().length) { retry(); }
+    });
+
+    // 后台巡检：保持跨页面/多端最终一致
+    setInterval(function () {
+        if (document.hidden) { return; }
+        if (readPending().length) { retry(); }
+    }, 120000);
+
+    // 聚焦时补拉 users（多端修改后回到页面即可看到最新资料）
+    document.addEventListener('visibilitychange', function () {
+        if (document.hidden) { return; }
+        if (!window.dataStore || typeof window.dataStore.set !== 'function') { return; }
+        fetchCloud('users').then(function (cloudStr) {
+            if (!cloudStr) { return; }
+            var cloudUsers = [];
+            try { cloudUsers = JSON.parse(cloudStr) || []; } catch (e) { return; }
+            if (!Array.isArray(cloudUsers) || !cloudUsers.length) { return; }
+            var localUsers = window.getUsers ? (window.getUsers() || []) : [];
+            var dirty = false;
+            for (var c = 0; c < cloudUsers.length; c++) {
+                var cu = cloudUsers[c] || {};
+                if (!cu.username) { continue; }
+                for (var l = 0; l < localUsers.length; l++) {
+                    var lu = localUsers[l] || {};
+                    if (lu.username !== cu.username) { continue; }
+                    // 仅当云端资料的 profileUpdatedAt 更新时才覆盖本地，避免覆盖本机正在编辑的内容
+                    var localAt = Number(lu.profileUpdatedAt || 0);
+                    var cloudAt = Number(cu.profileUpdatedAt || 0);
+                    if (cloudAt > localAt) {
+                        for (var f in cu) {
+                            if (Object.prototype.hasOwnProperty.call(cu, f)) { lu[f] = cu[f]; }
+                        }
+                        dirty = true;
+                    }
+                    break;
+                }
+            }
+            if (dirty) {
+                clearNickCache();
+                try {
+                    if (window.dataStore && typeof window.dataStore.set === 'function') {
+                        window.dataStore.set('users', JSON.stringify(localUsers));
+                    } else {
+                        localStorage.setItem('users', JSON.stringify(localUsers));
+                    }
+                } catch (e) { /* ignore */ }
+                if (window.renderProfileView && window.getSession && window.getSession()) {
+                    try { window.renderProfileView(window.getSession().username); } catch (e) { /* ignore */ }
+                }
+                renderCompletion();
+                emit('remote-pull', { key: 'users' });
+            }
+        }).catch(function () { /* ignore */ });
+    });
+})();

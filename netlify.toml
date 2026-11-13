@@ -13,6 +13,15 @@
   force = true
 
 [[redirects]]
-  from = "/*"
-  to = "/index.html"
+  from = "/api/auth"
+  to = "/.netlify/functions/auth"
   status = 200
+  force = true
+
+# 本站为多页静态站，不存在前端路由，不需要 SPA 兜底。
+# 原 `/* -> /index.html (200)` 会让任意未知路径（含 /.env 等探测）都返回首页 200，
+# 形成软 404。这里改为回落到 404.html 并返回真实 404 状态码。
+[[redirects]]
+  from = "/*"
+  to = "/404.html"
+  status = 404

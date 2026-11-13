@@ -62,14 +62,36 @@
                 <li><a href="login.html" class="drawer-link" id="drawerLoginBtn" style="display:none;"><span class="drawer-icon">🔑</span>登录</a></li>
                 <li><a href="register.html" class="drawer-link" id="drawerRegisterBtn" style="display:none;"><span class="drawer-icon">📝</span>注册</a></li>
                 <li><a href="admin.html" class="drawer-link" id="drawerAdminLink" style="display:none;"><span class="drawer-icon">⚙️</span>管理后台</a></li>
-                <li><a href="profile.html" class="drawer-link login-guard" id="drawerProfileLink"><span class="drawer-icon">👤</span>个人信息</a></li>
+                <li><a href="profile.html#personal" class="drawer-link login-guard" id="drawerProfileLink"><span class="drawer-icon">👤</span>个人信息</a></li>
+                <li><a href="profile.html#security" class="drawer-link login-guard" id="drawerSecurityLink" style="display:none;"><span class="drawer-icon">🛡</span>账户与安全</a></li>
                 <li><a href="#" class="drawer-link drawer-danger" id="drawerLogoutBtn" style="display:none;"><span class="drawer-icon">↪</span>退出登录</a></li>
             </ul>
         </div>
     </div>
     <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
-    <div class="home-container">
+<div class="home-container home-v2">
+    <!-- ========== 首屏概览 ========== -->
+    <section class="home-section home-hero" id="homeHero">
+        <div class="hero-main">
+            <p class="hero-eyebrow">校园资源共享平台</p>
+            <h1 class="hero-title">在这里，分享与发现</h1>
+            <p class="hero-sub">公告通知、最新内容、访客留言与动态广场，一屏掌握站点的最新进展。</p>
+            <div class="hero-actions">
+                <button type="button" class="btn btn-primary" id="heroContentBtn">浏览最新内容</button>
+                <a class="btn btn-secondary" href="publish.html">发布内容</a>
+                <button type="button" class="btn btn-ghost" id="heroGuestbookBtn">去留言</button>
+            </div>
+        </div>
+        <div class="hero-stats" id="heroStats" aria-label="站点概览数据">
+            <div class="hero-stat"><span class="hero-stat-num" id="heroStatContent">0</span><span class="hero-stat-label">内容</span></div>
+            <div class="hero-stat"><span class="hero-stat-num" id="heroStatMoment">0</span><span class="hero-stat-label">动态</span></div>
+            <div class="hero-stat"><span class="hero-stat-num" id="heroStatGuestbook">0</span><span class="hero-stat-label">留言</span></div>
+            <div class="hero-stat"><span class="hero-stat-num" id="heroStatUser">0</span><span class="hero-stat-label">成员</span></div>
+        </div>
+    </section>
+
+    <!-- ========== 快捷条：每日一言 ========== -->
         <!-- 每日一言 -->
         <section class="home-section daily-word-strip">
             <div class="section-header">
@@ -79,6 +101,9 @@
             <div id="dailyWordHome" class="daily-word-box"></div>
         </section>
 
+    <!-- ========== 内容流：主栏（公告 / 最新内容 / 动态） ========== -->
+    <div class="home-stream">
+        <div class="home-stream-main">
         <!-- 公告通知 -->
         <section class="home-section">
             <div class="section-header">
@@ -89,43 +114,39 @@
             <p id="announcementEmpty" class="empty-tip" style="display:none;">暂无公告</p>
         </section>
 
-        <!-- 功能特性介绍 -->
+        <!-- 最新内容 -->
         <section class="home-section">
             <div class="section-header">
-                <h2>平台特色</h2>
-                <span class="section-badge">Feature</span>
+                <h2>最新内容</h2>
             </div>
-            <div class="feature-grid">
-                <div class="feature-card">
-                    <div class="feature-icon feature-icon-auth">安</div>
-                    <div class="feature-title">安全认证</div>
-                    <div class="feature-desc">手机号/邮箱格式校验、密码强度检测、登录设备管理，全方位守护账号安全。</div>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon feature-icon-role">权</div>
-                    <div class="feature-title">角色权限</div>
-                    <div class="feature-desc">超级管理员、管理员、普通用户三级权限，后台功能按角色动态开放。</div>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon feature-icon-content">内</div>
-                    <div class="feature-title">内容管理</div>
-                    <div class="feature-desc">快速发布留言动态，最新内容实时展示，后台统一审核管理。</div>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon feature-icon-stats">数</div>
-                    <div class="feature-title">数据统计</div>
-                    <div class="feature-desc">管理后台图表可视化，用户、内容、公告、日志数据一屏掌握。</div>
-                </div>
-            </div>
+            <div id="contentList" class="content-list"></div>
+            <p id="contentEmpty" class="empty-tip">暂无内容，快来发布第一条吧</p>
         </section>
 
+        <!-- 动态广场 -->
+        <section class="home-section">
+            <div class="section-header">
+                <h2>动态广场</h2>
+                <span class="section-badge">Moments</span>
+            </div>
+            <div class="moment-post-box">
+                <textarea id="homeMomentInput" rows="2" placeholder="发布一条动态，分享此刻的想法..." maxlength="500"></textarea>
+                <button class="btn btn-primary btn-sm" onclick="window.publishMoment(document.getElementById('homeMomentInput').value)">发布</button>
+            </div>
+            <div id="momentFeed" class="moments-list"></div>
+            <p id="momentFeedEmpty" class="empty-tip" style="display:none;">还没有动态，来发布第一条吧</p>
+        </section>
+        </div>
+
+        <!-- ========== 内容流：侧栏（快捷功能 / 投票 / 相册） ========== -->
+        <aside class="home-stream-side">
         <!-- 快捷功能区 -->
         <section class="home-section">
             <div class="section-header">
                 <h2>快捷功能</h2>
             </div>
             <div class="quick-actions">
-                <a href="profile.html" class="quick-card login-guard">
+                <a href="profile.html#personal" class="quick-card login-guard">
                     <div class="quick-icon quick-icon-profile">资</div>
                     <div class="quick-title">个人资料</div>
                     <div class="quick-desc">完善你的个人资料信息</div>
@@ -173,55 +194,6 @@
             </div>
         </section>
 
-        <!-- 反馈展示区 -->
-        <section class="home-section">
-            <div class="section-header">
-                <h2>用户反馈</h2>
-                <span class="section-badge" id="feedbackCount">0</span>
-            </div>
-            <div id="feedbackList" class="feedback-list"></div>
-            <p id="feedbackEmpty" class="empty-tip" style="display:none;">暂无反馈，快来提出你的建议吧</p>
-        </section>
-
-        <!-- 留言板 -->
-        <section class="home-section">
-            <div class="section-header">
-                <h2>访客留言板</h2>
-                <span class="section-badge">互动</span>
-            </div>
-            <div class="guestbook-box">
-                <div class="guestbook-form">
-                    <input type="text" id="guestbookInput" placeholder="留下你的足迹或建议（200字以内）..." maxlength="200">
-                    <button class="btn btn-primary" id="guestbookSubmitBtn">留言</button>
-                </div>
-                <div id="guestbookList" class="guestbook-list"></div>
-                <p id="guestbookEmpty" class="guestbook-empty">还没有留言，来抢沙发吧～</p>
-            </div>
-        </section>
-
-        <!-- 最新内容 -->
-        <section class="home-section">
-            <div class="section-header">
-                <h2>最新内容</h2>
-            </div>
-            <div id="contentList" class="content-list"></div>
-            <p id="contentEmpty" class="empty-tip">暂无内容，快来发布第一条吧</p>
-        </section>
-
-        <!-- 动态广场 -->
-        <section class="home-section">
-            <div class="section-header">
-                <h2>动态广场</h2>
-                <span class="section-badge">Moments</span>
-            </div>
-            <div class="moment-post-box">
-                <textarea id="homeMomentInput" rows="2" placeholder="发布一条动态，分享此刻的想法..." maxlength="500"></textarea>
-                <button class="btn btn-primary btn-sm" onclick="window.publishMoment(document.getElementById('homeMomentInput').value)">发布</button>
-            </div>
-            <div id="momentFeed" class="moments-list"></div>
-            <p id="momentFeedEmpty" class="empty-tip" style="display:none;">还没有动态，来发布第一条吧</p>
-        </section>
-
         <!-- 投票问卷区 -->
         <section class="home-section">
             <div class="section-header">
@@ -241,8 +213,70 @@
             <div id="albumMasonry" class="album-masonry"></div>
             <p id="albumMasonryEmpty" class="empty-tip" style="display:none;">还没有照片，去个人中心上传第一张吧</p>
         </section>
+        </aside>
     </div>
 
+    <!-- ========== 互动区：访客留言板 / 用户反馈 ========== -->
+    <div class="home-interact">
+        <!-- 留言板 -->
+        <section class="home-section">
+            <div class="section-header">
+                <h2>访客留言板</h2>
+                <span class="section-badge">互动</span>
+            </div>
+            <div class="guestbook-box">
+                <div class="guestbook-form">
+                    <input type="text" id="guestbookInput" placeholder="留下你的足迹或建议（200字以内）..." maxlength="200">
+                    <button class="btn btn-primary" id="guestbookSubmitBtn">留言</button>
+                </div>
+                <div id="guestbookList" class="guestbook-list"></div>
+                <p id="guestbookEmpty" class="guestbook-empty">还没有留言，来抢沙发吧～</p>
+            </div>
+        </section>
+
+        <!-- 反馈展示区 -->
+        <section class="home-section">
+            <div class="section-header">
+                <h2>用户反馈</h2>
+                <span class="section-badge" id="feedbackCount">0</span>
+            </div>
+            <div id="feedbackList" class="feedback-list"></div>
+            <p id="feedbackEmpty" class="empty-tip" style="display:none;">暂无反馈，快来提出你的建议吧</p>
+        </section>
+    </div>
+
+    <!-- ========== 平台特色（置于页面末段） ========== -->
+        <!-- 功能特性介绍 -->
+        <section class="home-section">
+            <div class="section-header">
+                <h2>平台特色</h2>
+                <span class="section-badge">Feature</span>
+            </div>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <div class="feature-icon feature-icon-auth">安</div>
+                    <div class="feature-title">安全认证</div>
+                    <div class="feature-desc">手机号/邮箱格式校验、密码强度检测、登录设备管理，全方位守护账号安全。</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon feature-icon-role">权</div>
+                    <div class="feature-title">角色权限</div>
+                    <div class="feature-desc">超级管理员、管理员、普通用户三级权限，后台功能按角色动态开放。</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon feature-icon-content">内</div>
+                    <div class="feature-title">内容管理</div>
+                    <div class="feature-desc">快速发布留言动态，最新内容实时展示，后台统一审核管理。</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon feature-icon-stats">数</div>
+                    <div class="feature-title">数据统计</div>
+                    <div class="feature-desc">管理后台图表可视化，用户、内容、公告、日志数据一屏掌握。</div>
+                </div>
+            </div>
+        </section>
+
+</div>
     <!-- 手机端底部导航 -->
     <nav class="bottom-nav" id="bottomNav">
         <a href="#announcementList" class="bottom-nav-item active">
@@ -455,26 +489,37 @@
         }
     })();
 
-    // ===== 首页内容区分组重排：每日一言 → 快捷功能 → 公告 → 最新内容 → 动态广场 → 投票 → 相册 =====
+    // ===== 首屏概览：填充统计数字与快捷跳转 =====
     (function() {
-        var container = document.querySelector('.home-container');
-        if (!container) return;
-        var order = [
-            '.daily-word-strip',
-            'section:has(.quick-actions)',
-            'section:has(#announcementList)',
-            'section:has(#contentList)',
-            'section:has(#momentFeed)',
-            'section:has(#pollList)',
-            'section:has(#albumMasonry)',
-            'section:has(#guestbookList)',
-            'section:has(#feedbackList)',
-            'section:has(.feature-grid)'
-        ];
-        for (var i = 0; i < order.length; i++) {
-            var el = container.querySelector(order[i]);
-            if (el) container.appendChild(el);
+        function num(v) { var n = Number(v); return isFinite(n) && n > 0 ? n : 0; }
+        function put(id, val) { var el = document.getElementById(id); if (el) { el.textContent = String(num(val)); } }
+        function refresh() {
+            try {
+                if (window.getContents) { put('heroStatContent', (window.getContents() || []).length); }
+                if (window.getGuestbook) { put('heroStatGuestbook', (window.getGuestbook() || []).length); }
+                if (window.getUsers) { put('heroStatUser', (window.getUsers() || []).length); }
+                var m = [];
+                try { m = JSON.parse(localStorage.getItem('siteMoments') || '[]') || []; } catch (e) { m = []; }
+                if (!m.length) {
+                    try { m = JSON.parse(window.dataStore ? window.dataStore.get('siteMoments') || '[]' : '[]') || []; } catch (e) { m = []; }
+                }
+                put('heroStatMoment', m.length);
+            } catch (e) { /* ignore */ }
         }
+        refresh();
+        window.addEventListener('load', refresh);
+        // 多端 / 多标签页数据刷新后，首屏统计同步更新
+        window.addEventListener('site-data-refreshed', refresh);
+        setTimeout(refresh, 900);
+        function scrollToId(id, focusId) {
+            var t = document.getElementById(id);
+            if (t && t.scrollIntoView) { t.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+            if (focusId) { var f = document.getElementById(focusId); if (f) { f.focus(); } }
+        }
+        var cb = document.getElementById('heroContentBtn');
+        if (cb) { cb.addEventListener('click', function() { scrollToId('contentList'); }); }
+        var gb = document.getElementById('heroGuestbookBtn');
+        if (gb) { gb.addEventListener('click', function() { scrollToId('guestbookList', 'guestbookInput'); }); }
     })();
 
     // ===== 底部导航栏高亮（按重排后区域顺序） =====

@@ -7,6 +7,17 @@
     <link rel="manifest" href="manifest.json">
     <title>个人信息</title>
     <link rel="stylesheet" href="styles.css">
+    <!-- 登录守卫：未登录直接拦截，避免个人信息页被匿名访问（原实现无任何拦截） -->
+    <script>
+        (function () {
+            var session = null;
+            try { session = JSON.parse(localStorage.getItem('currentUser') || 'null'); } catch (e) { session = null; }
+            if (!session || !session.username) {
+                alert('请先登录后再访问个人信息页面');
+                window.location.replace('login.html');
+            }
+        })();
+    </script>
 </head>
 <body class="profile-page">
     <nav class="top-nav top-nav-drawer">
@@ -74,10 +85,15 @@
         <!-- 标签页导航（分组主项 + 子菜单） -->
         <div class="profile-tabs">
             <div class="tab-group open active" data-group="account">
-                <button class="tab-group-btn active" type="button">资料与账号</button>
+                <button class="tab-group-btn active" type="button">个人信息</button>
                 <div class="tab-submenu open">
                     <button class="tab-btn active" data-tab="personal">个人资料</button>
-                    <button class="tab-btn" data-tab="security">账号与安全</button>
+                </div>
+            </div>
+            <div class="tab-group" data-group="safety">
+                <button class="tab-group-btn" type="button">账户与安全</button>
+                <div class="tab-submenu">
+                    <button class="tab-btn" data-tab="security">安全设置</button>
                 </div>
             </div>
             <div class="tab-group" data-group="social">
@@ -109,6 +125,20 @@
         <!-- ========== 个人资料 ========== -->
         <div class="tab-panel active" id="panel-personal">
 
+            <section class="profile-panel-head">
+                <div class="profile-panel-head-main">
+                    <h2>个人信息</h2>
+                    <p class="page-tip">这里管理对外展示的资料。账号密码、登录设备与注销等安全操作请前往「账户与安全」。</p>
+                </div>
+                <button type="button" class="btn btn-secondary btn-sm" data-goto-panel="security">前往账户与安全</button>
+            </section>
+
+            <section class="profile-completion" id="profileCompletionV2">
+                <div class="completion-text">资料完成度 0%</div>
+                <div class="completion-track"><div class="completion-fill" style="width:0%"></div></div>
+                <p class="completion-missing"></p>
+            </section>
+
             <form id="profileForm">
                 <div class="form-group">
                     <label for="profileAccountId">账号</label>
@@ -124,11 +154,20 @@
                 </div>
                 <div class="form-group">
                     <label for="profileNickname">昵称</label>
-                    <input type="text" id="profileNickname" required placeholder="请输入昵称（最多20个字符）">
+                    <input type="text" id="profileNickname" maxlength="20" placeholder="昵称（最多20个字符，留空则显示用户名）">
                 </div>
                 <div class="form-group">
-                    <label for="profileAvatarUrl">头像 URL</label>
-                    <input type="url" id="profileAvatarUrl" placeholder="输入图片链接地址">
+                    <label for="profileAvatarUrl">头像</label>
+                    <div class="avatar-edit-row">
+                        <img id="profileAvatarPreview" class="avatar-edit-preview" alt="头像预览" style="display:none;">
+                        <div class="avatar-edit-fields">
+                            <input type="url" id="profileAvatarUrl" placeholder="输入图片链接地址">
+                            <div class="avatar-edit-actions">
+                                <input type="file" id="profileAvatarFile" accept="image/*" class="avatar-file-input">
+                                <span class="page-tip">支持选择本地图片（≤512KB），也可直接填写图片链接。</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 <div class="form-row">
                     <div class="form-group">
@@ -154,6 +193,24 @@
                     <textarea id="profileBio" rows="4" maxlength="500" placeholder="介绍一下自己吧..."></textarea>
                 </div>
                 <div class="form-group">
+                    <label for="profileSignature">个性签名</label>
+                    <input type="text" id="profileSignature" maxlength="40" placeholder="一句话介绍自己（最多40个字符）">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="profileRealName">真实姓名</label>
+                        <input type="text" id="profileRealName" maxlength="20" placeholder="选填">
+                    </div>
+                    <div class="form-group">
+                        <label for="profileSchool">学校 / 院系</label>
+                        <input type="text" id="profileSchool" maxlength="40" placeholder="选填">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="profileCompany">单位 / 组织</label>
+                    <input type="text" id="profileCompany" maxlength="40" placeholder="选填">
+                </div>
+                <div class="form-group">
                     <label for="profilePhone">手机号</label>
                     <input type="tel" id="profilePhone" placeholder="请输入11位手机号（可用于登录与找回密码）" maxlength="11">
                 </div>
@@ -174,6 +231,14 @@
 
         <!-- ========== 账号与安全 ========== -->
         <div class="tab-panel" id="panel-security">
+
+            <section class="profile-panel-head">
+                <div class="profile-panel-head-main">
+                    <h2>账户与安全</h2>
+                    <p class="page-tip">密码修改、手机/邮箱绑定、登录设备与账号注销等安全操作集中在此，退出登录也在本页面底部。</p>
+                </div>
+                <button type="button" class="btn btn-secondary btn-sm" data-goto-panel="personal">前往个人信息</button>
+            </section>
 
             <!-- 修改密码 -->
             <section class="security-section">
@@ -244,6 +309,16 @@
                     <tbody id="userLogTableBody"></tbody>
                 </table>
                 <p id="logEmpty" class="empty-tip" style="display:none;">暂无操作日志</p>
+            </section>
+
+            <!-- 登录与退出 -->
+            <section class="security-section" id="sessionSection">
+                <h3>登录与退出</h3>
+                <p class="security-hint">退出登录后将清除本机的登录状态，需重新输入账号密码。该操作仅作用于当前设备。</p>
+                <div class="logout-actions">
+                    <button type="button" class="btn btn-secondary" id="profileLogoutBtn">退出登录</button>
+                    <button type="button" class="btn btn-ghost btn-sm" data-goto-panel="personal">返回个人信息</button>
+                </div>
             </section>
 
             <!-- 危险操作：注销账号 -->
