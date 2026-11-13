@@ -1,3 +1,14 @@
+/* 安全昵称解析：window.displayNameOf 在文件末尾才挂载，首页 initHomePage 在脚本顶层同步执行，
+   早期渲染阶段直接调用会抛 TypeError 并被 try/catch 吞掉，导致内容/留言/动态模块整体不渲染。 */
+if (typeof window !== 'undefined' && typeof window.safeDisplayName !== 'function') {
+    window.safeDisplayName = function (v) {
+        try {
+            if (typeof window.displayNameOf === 'function') { return window.displayNameOf(v); }
+        } catch (e) { }
+        var s = String(v === undefined || v === null ? '' : v).trim();
+        return s || '匿名';
+    };
+}
 // 登录注册系统 - localStorage 前端模拟 + 超级管理员系统 + 管理后台增强
 
 // 跨域部署（如 GitHub Pages 备用入口）时，数据接口仍指向 Cloudflare Pages 主站；主站/自定义域名下为同源相对路径
@@ -1458,7 +1469,7 @@ var MARVIS_API_BASE = (function () {
             else if (item.status === 'resolved') statusBadge = '<span class="status-badge status-resolved">已解决</span>';
             else if (item.status === 'rejected') statusBadge = '<span class="status-badge status-rejected">已驳回</span>';
             html += '<div class="feedback-item"><div class="feedback-head">' +
-                '<span class="feedback-author">' + escapeHtml(window.displayNameOf(item.author || '')) + '</span>' +
+                '<span class="feedback-author">' + escapeHtml(window.safeDisplayName(item.author || '')) + '</span>' +
                 '<span class="feedback-time">' + escapeHtml(item.time || '') + '</span>' +
                 statusBadge + '</div>' +
                 '<h4 class="feedback-title">' + escapeHtml(item.title) + '</h4>' +
@@ -1490,7 +1501,7 @@ var MARVIS_API_BASE = (function () {
         }
         var total = getVisitLog().length;
         el.innerHTML = '<span class="visit-info"><span class="visit-label">访客足迹</span> 累计 ' + total + ' 次访问' +
-            (session && session.username ? '，欢迎回来，' + escapeHtml(window.displayNameOf(session.username)) : '，登录可记录你的足迹') +
+            (session && session.username ? '，欢迎回来，' + escapeHtml(window.safeDisplayName(session.username)) : '，登录可记录你的足迹') +
             '<span class="visit-avatars">' + avatars + '</span></span>';
     }
 
@@ -1506,7 +1517,7 @@ var MARVIS_API_BASE = (function () {
             var item = list[i];
             html += '<div class="guestbook-item"><span class="guestbook-avatar">' + escapeHtml((item.author || '客').charAt(0).toUpperCase()) + '</span>' +
                 '<div class="guestbook-main"><div class="guestbook-head">' +
-                '<span class="guestbook-author">' + escapeHtml(window.displayNameOf(item.author || '')) + '</span>' +
+                '<span class="guestbook-author">' + escapeHtml(window.safeDisplayName(item.author || '')) + '</span>' +
                 '<span class="guestbook-time">' + escapeHtml(item.time || '') + '</span></div>' +
                 '<div class="guestbook-text">' + escapeHtml(item.text || '') + '</div></div></div>';
         }
@@ -1669,7 +1680,7 @@ var MARVIS_API_BASE = (function () {
             var faved = favs.indexOf(item.id) !== -1;
             html += '<div class="content-card" data-content-id="' + item.id + '"><div class="content-card-head">' +
                 '<span class="content-card-title">' + escapeHtml(item.title) + (item.status === 'pinned' ? '<span class="pin-badge">置顶</span>' : '') + '</span>' +
-                '<span class="content-card-meta">' + escapeHtml(window.displayNameOf(item.author)) + ' · ' + escapeHtml(item.time || '') + '</span></div>' +
+                '<span class="content-card-meta">' + escapeHtml(window.safeDisplayName(item.author)) + ' · ' + escapeHtml(item.time || '') + '</span></div>' +
                 '<p class="content-card-body">' + escapeHtml(item.body) + '</p>' +
                 '<div class="content-card-actions">' +
                 '<button class="btn btn-secondary btn-xs like-btn" data-id="' + item.id + '">' + (liked ? '已赞' : '点赞') + ' (' + likes + ')</button>' +
@@ -1871,7 +1882,7 @@ var MARVIS_API_BASE = (function () {
             var item = matched[j];
             html += '<div class="favorite-item"><div class="content-card-head">' +
                 '<span class="content-card-title">' + escapeHtml(item.title) + '</span>' +
-                '<span class="content-card-meta">' + escapeHtml(window.displayNameOf(item.author)) + ' · ' + escapeHtml(item.time || '') + '</span></div>' +
+                '<span class="content-card-meta">' + escapeHtml(window.safeDisplayName(item.author)) + ' · ' + escapeHtml(item.time || '') + '</span></div>' +
                 '<p class="content-card-body">' + escapeHtml(item.body) + '</p>' +
                 '<button class="btn btn-danger btn-xs fav-remove-btn" data-id="' + item.id + '">取消收藏</button></div>';
         }
@@ -3166,7 +3177,7 @@ function renderFavoritesEx() {
         var liked = isContentLikedBy(item.id, s.username);
         html += '<div class="favorite-ex-item">' +
             '<div class="favorite-ex-main"><a class="history-title" href="javascript:void(0)" onclick="window.openContentDetail(' + item.id + ')">' + escapeHtml(item.title) + '</a>' +
-            '<span class="history-time">' + escapeHtml(window.displayNameOf(item.author)) + ' · ' + escapeHtml(item.time || '') + '</span></div>' +
+            '<span class="history-time">' + escapeHtml(window.safeDisplayName(item.author)) + ' · ' + escapeHtml(item.time || '') + '</span></div>' +
             '<div class="favorite-ex-actions">' +
             '<button class="btn btn-secondary btn-xs" onclick="window.toggleReadLater(' + item.id + ')">稍后读</button> ' +
             '<button class="btn btn-danger btn-xs" onclick="window.removeFavoriteContent(' + item.id + ')">取消收藏</button>' +
@@ -5279,7 +5290,7 @@ function openMessageModal() {
         select.innerHTML = '<option value="all">所有用户</option>';
         users.forEach(function(u) {
             if (u.username !== getSession().username) {
-                select.innerHTML += '<option value="' + u.username + '">' + escapeHtml(window.displayNameOf(u.username)) + '</option>';
+                select.innerHTML += '<option value="' + u.username + '">' + escapeHtml(window.safeDisplayName(u.username)) + '</option>';
             }
         });
     }
