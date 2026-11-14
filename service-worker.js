@@ -1,6 +1,6 @@
 /* service-worker.js - 我的站点离线缓存（v3：导航网络优先 + 预缓存 + 离线兜底） */
-var CACHE_NAME = 'my-site-v10';
-var RUNTIME_CACHE = 'my-site-runtime-v10';
+var CACHE_NAME = 'my-site-v11';
+var RUNTIME_CACHE = 'my-site-runtime-v11';
 
 var CORE_ASSETS = [
   './',
@@ -19,6 +19,8 @@ var CORE_ASSETS = [
   './404.html',
   './styles.css',
   './auth.js',
+  './home.js',
+  './home.css',
   './enhance.js',
   './manifest.json'
 ];
