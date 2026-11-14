@@ -9,6 +9,7 @@
     <title>首页 - 我的站点</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="home.css">
+    <link rel="stylesheet" href="home-v5.css">
 </head>
 
 <body class="home-page">
@@ -93,6 +94,20 @@
                 <div class="hero-stat"><span class="hero-stat-num" id="heroStatUser">0</span><span class="hero-stat-label">成员</span></div>
             </div>
         </section>
+
+        <!-- ==================== 通栏快捷筛选条 ==================== -->
+        <nav class="hv5-quickbar" aria-label="站内快捷定位">
+            <span class="hv5-quickbar-label">快速定位</span>
+            <div class="hv5-quickbar-items">
+                <a href="#contentSection" class="hv5-chip is-active">最新内容</a>
+                <a href="#panel-moment" class="hv5-chip" data-hv4-goto="moment">动态广场</a>
+                <a href="#panel-vote" class="hv5-chip" data-hv4-goto="vote">投票问卷</a>
+                <a href="#panel-album" class="hv5-chip" data-hv4-goto="album">相册画廊</a>
+                <a href="#panel-feedback" class="hv5-chip" data-hv4-goto="feedback">用户反馈</a>
+                <a href="#guestbookSection" class="hv5-chip">访客留言</a>
+                <a href="#sideAnnounce" class="hv5-chip">公告通知</a>
+            </div>
+        </nav>
 
         <!-- ==================== 主体：内容主栏 + 信息侧栏 ==================== -->
         <div class="hv4-layout">

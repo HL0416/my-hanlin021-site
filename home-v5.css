@@ -1,0 +1,558 @@
+/* ============================================================
+ * home-v5.css — 首页架构 v5「融合层」样式
+ * 挂载顺序：styles.css → home.css(v4) → home-v5.css
+ *
+ * 设计来源（5 张参考稿的取舍）：
+ *   ① SiteServer  → 全宽深色 Hero 大横幅 + 网格纹理 + 通栏快捷筛选条
+ *   ② Pixso 社区  → 胶囊筛选条 + 内容卡片多列栅格 + 紫蓝渐变色彩逻辑
+ *   ③ 兔小白 Blog → 侧栏聚合紧凑、吸顶跟随，信息不散乱
+ *   ④ 个人网站    → 每日一言改引语式排版、相册多列照片墙
+ *   ⑤ Heado Agency→ 几何撞色块 + 章节之间用色带/色条分隔
+ *
+ * 约束：不改 styles.css，不改 auth.js；只覆盖首页（.home-v4 作用域）。
+ * ============================================================ */
+
+.home-v5,
+.home-container.home-v4 {
+    --hv5-ink: #0e1330;
+    --hv5-band: #f5f7fe;
+    --hv5-band-dark: #171b29;
+    --hv5-line: #e7eaf6;
+    --hv5-grad: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --hv5-grad-blue: linear-gradient(135deg, #8b5cf6 0%, #3b82f6 100%);
+}
+
+[data-theme="dark"] .home-container.home-v4 {
+    --hv5-band: var(--hv5-band-dark);
+    --hv5-line: #2c3247;
+}
+
+/* ============================================================
+ * ① Hero：全宽深色大横幅（SiteServer）+ 几何撞色块（Heado）
+ * ============================================================ */
+.home-container.home-v4 .hv4-hero {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    grid-template-columns: minmax(0, 1.62fr) minmax(0, 1fr);
+    gap: 34px;
+    padding: 46px 46px 42px;
+    border-radius: 24px;
+    background:
+        radial-gradient(circle at 86% 16%, rgba(139, 92, 246, 0.62), transparent 44%),
+        radial-gradient(circle at 8% 92%, rgba(59, 130, 246, 0.5), transparent 48%),
+        linear-gradient(135deg, #121938 0%, #232a63 44%, #41317c 100%);
+    box-shadow: 0 20px 48px rgba(18, 25, 56, 0.34);
+}
+
+/* 细网格纹理，给深色底加科技感 */
+.home-container.home-v4 .hv4-hero::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background-image:
+        linear-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+    background-size: 46px 46px;
+    -webkit-mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.95), transparent 82%);
+    mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.95), transparent 82%);
+}
+
+/* 右上角几何撞色块 */
+.home-container.home-v4 .hv4-hero::after {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    right: -74px;
+    top: -86px;
+    width: 320px;
+    height: 320px;
+    border-radius: 42px;
+    transform: rotate(20deg);
+    background: var(--hv5-grad-blue);
+    opacity: 0.34;
+    filter: blur(1px);
+}
+
+.home-container.home-v4 .hv4-hero-eyebrow {
+    display: inline-block;
+    margin: 0 0 14px;
+    padding: 5px 13px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.14);
+    border: 1px solid rgba(255, 255, 255, 0.24);
+    font-size: 12.5px;
+    letter-spacing: 1.6px;
+    color: #fff;
+}
+
+.home-container.home-v4 .hv4-hero-title {
+    margin: 0 0 14px;
+    font-size: 38px;
+    line-height: 1.22;
+    letter-spacing: -0.6px;
+    font-weight: 800;
+    color: #fff;
+}
+
+.home-container.home-v4 .hv4-hero-sub {
+    max-width: 580px;
+    margin: 0 0 24px;
+    font-size: 14.5px;
+    line-height: 1.78;
+    color: rgba(255, 255, 255, 0.84);
+}
+
+.home-container.home-v4 .hv4-hero-actions {
+    gap: 12px;
+}
+
+.home-container.home-v4 .hv4-hero-actions .btn {
+    min-width: 124px;
+    border-radius: 10px;
+    font-weight: 600;
+}
+
+.home-container.home-v4 .hv4-hero-actions .btn-ghost {
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.home-container.home-v4 .hv4-hero-actions .btn-ghost:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+/* 玻璃统计卡 */
+.home-container.home-v4 .hv4-hero .hero-stats {
+    gap: 12px;
+}
+
+.home-container.home-v4 .hv4-hero .hero-stat {
+    padding: 18px 8px;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+}
+
+.home-container.home-v4 .hv4-hero .hero-stat-num {
+    font-size: 26px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+}
+
+.home-container.home-v4 .hv4-hero .hero-stat-label {
+    margin-top: 4px;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.82);
+}
+
+/* ============================================================
+ * ② 通栏快捷筛选条（SiteServer 底部分类条 + Pixso 胶囊筛选栏）
+ * ============================================================ */
+.hv5-quickbar {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 16px;
+    background: var(--hv4-card);
+    border: 1px solid var(--hv4-border);
+    border-radius: 16px;
+    box-shadow: var(--hv4-shadow);
+}
+
+.hv5-quickbar-label {
+    flex: none;
+    padding-right: 14px;
+    border-right: 1px solid var(--hv4-border);
+    font-size: 12.5px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: var(--hv4-text-dim);
+    white-space: nowrap;
+}
+
+.hv5-quickbar-items {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding: 2px;
+}
+
+.hv5-quickbar-items::-webkit-scrollbar {
+    display: none;
+}
+
+.hv5-chip {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    padding: 8px 16px;
+    border-radius: 999px;
+    background: var(--hv4-card-soft);
+    border: 1px solid var(--hv4-border);
+    color: var(--hv4-text-dim);
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: transform 0.16s ease, color 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.hv5-chip:hover {
+    transform: translateY(-1px);
+    color: var(--hv4-text);
+    border-color: var(--hv4-accent);
+    box-shadow: 0 6px 16px rgba(102, 126, 234, 0.18);
+}
+
+.hv5-chip:focus-visible {
+    outline: 2px solid var(--hv4-accent);
+    outline-offset: 2px;
+}
+
+.hv5-chip.is-active {
+    color: #fff;
+    background: var(--hv5-grad);
+    border-color: transparent;
+}
+
+/* ============================================================
+ * ③ 双栏：主栏更宽，侧栏吸顶跟随（兔小白式聚合紧凑）
+ * ============================================================ */
+.home-container.home-v4 .hv4-layout {
+    grid-template-columns: minmax(0, 2.35fr) minmax(0, 1fr);
+    gap: 20px;
+}
+
+.home-container.home-v4 .hv4-side {
+    position: sticky;
+    top: 88px;
+}
+
+/* ============================================================
+ * ④ 内容卡：多列栅格（Pixso 卡片墙）
+ *    styles.css 中有 display:flex + grid-template-columns:1fr !important，
+ *    这里用 .home-container.home-v4 提升特异性并显式声明 display:grid !important
+ * ============================================================ */
+.home-container.home-v4 .hv4-main #contentList.content-list {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 14px !important;
+    flex-direction: row !important;
+}
+
+.home-container.home-v4 .hv4-main #contentList .content-card {
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    padding: 18px;
+    border-radius: 14px;
+    background: var(--hv4-card-soft);
+    border: 1px solid var(--hv4-border);
+    transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
+}
+
+/* 与侧栏卡片统一：顶部 3px 渐变细条 */
+.home-container.home-v4 .hv4-main #contentList .content-card::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--hv5-grad);
+    opacity: 0.72;
+}
+
+.home-container.home-v4 .hv4-main #contentList .content-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--hv4-accent);
+    box-shadow: 0 10px 24px rgba(102, 126, 234, 0.16);
+}
+
+.home-container.home-v4 .hv4-main #contentList .content-card-title {
+    font-size: 15.5px;
+    font-weight: 700;
+    color: var(--hv4-text);
+}
+
+.home-container.home-v4 .hv4-main #contentList .content-card-body {
+    flex: 1;
+    margin: 8px 0 12px;
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--hv4-text-dim);
+    display: -webkit-box;
+    -webkit-line-clamp: 4;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.home-container.home-v4 .hv4-main #contentList .content-card-actions {
+    margin-top: auto;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+/* ============================================================
+ * ⑤ 章节分隔：卡片顶部渐变细条 + 标题左侧色条（Heado 章节色带）
+ * ============================================================ */
+.home-container.home-v4 .hv4-card,
+.home-container.home-v4 .hv4-panel,
+.home-container.home-v4 .hv4-side-card {
+    position: relative;
+    overflow: hidden;
+}
+
+.home-container.home-v4 .hv4-card::before,
+.home-container.home-v4 .hv4-panel::before,
+.home-container.home-v4 .hv4-side-card::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--hv5-grad);
+    opacity: 0.9;
+}
+
+.home-container.home-v4 .hv4-panel-head h2,
+.home-container.home-v4 .hv4-side-card > .section-header h2 {
+    position: relative;
+    padding-left: 12px;
+    font-weight: 700;
+}
+
+.home-container.home-v4 .hv4-panel-head h2::before,
+.home-container.home-v4 .hv4-side-card > .section-header h2::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 4px;
+    height: 15px;
+    border-radius: 2px;
+    background: var(--hv5-grad);
+}
+
+/* ============================================================
+ * ⑥ 每日一言：引语式排版（个人网站 #4 的居中引语做法）
+ * ============================================================ */
+.home-container.home-v4 #sideDaily .daily-word-box {
+    position: relative;
+    padding: 22px 18px 16px;
+    border-radius: 14px;
+    background: var(--hv4-card-soft);
+    border: 1px solid var(--hv4-border);
+    text-align: center;
+    font-size: 15px;
+    line-height: 1.85;
+    color: var(--hv4-text);
+    font-style: italic;
+    letter-spacing: 0.2px;
+}
+
+.home-container.home-v4 #sideDaily .daily-word-box::before {
+    content: "“";
+    position: absolute;
+    top: 2px;
+    left: 12px;
+    font-size: 42px;
+    line-height: 1;
+    font-style: normal;
+    color: var(--hv4-accent);
+    opacity: 0.34;
+}
+
+/* ============================================================
+ * ⑦ 相册：多列照片墙（个人网站 #4 四宫格延伸为瀑布墙）
+ * ============================================================ */
+.home-container.home-v4 #albumMasonry.album-masonry {
+    columns: 4 168px !important;
+    column-gap: 12px;
+}
+
+.home-container.home-v4 #albumMasonry .album-photo-card {
+    border-radius: 12px;
+    overflow: hidden;
+    transition: transform 0.16s ease, box-shadow 0.16s ease;
+}
+
+.home-container.home-v4 #albumMasonry .album-photo-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 22px rgba(23, 32, 86, 0.16);
+}
+
+/* ============================================================
+ * ⑧ Tab 条加宽，贴合胶囊筛选视觉
+ * ============================================================ */
+.home-container.home-v4 .hv4-tabs {
+    padding: 6px;
+    gap: 6px;
+}
+
+.home-container.home-v4 .hv4-tab {
+    padding: 11px 22px;
+}
+
+/* ============================================================
+ * 响应式
+ * ============================================================ */
+@media (max-width: 1280px) {
+    .home-container.home-v4 .hv4-hero {
+        padding: 38px 34px 34px;
+        gap: 26px;
+    }
+
+    .home-container.home-v4 .hv4-hero-title {
+        font-size: 32px;
+    }
+
+    .home-container.home-v4 .hv4-main #contentList.content-list {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+}
+
+@media (max-width: 1024px) {
+    .home-container.home-v4 .hv4-side {
+        position: static;
+    }
+
+    .home-container.home-v4 .hv4-layout {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+@media (max-width: 900px) {
+    .home-container.home-v4 .hv4-hero {
+        grid-template-columns: minmax(0, 1fr);
+        padding: 28px 24px;
+        gap: 20px;
+    }
+
+    .home-container.home-v4 .hv4-hero-title {
+        font-size: 26px;
+    }
+
+    .hv5-quickbar {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+
+    .hv5-quickbar-label {
+        padding-right: 0;
+        border-right: 0;
+    }
+
+    .hv5-quickbar-items {
+        width: 100%;
+    }
+
+    .home-container.home-v4 #albumMasonry.album-masonry {
+        columns: 3 140px !important;
+    }
+}
+
+@media (max-width: 640px) {
+    .home-container.home-v4 .hv4-main #contentList.content-list {
+        grid-template-columns: minmax(0, 1fr) !important;
+    }
+}
+
+@media (max-width: 560px) {
+    .home-container.home-v4 .hv4-hero {
+        padding: 22px 18px;
+        border-radius: 18px;
+    }
+
+    .home-container.home-v4 .hv4-hero-title {
+        font-size: 22px;
+    }
+
+    .home-container.home-v4 .hv4-hero-actions .btn {
+        min-width: 0;
+        flex: 1 1 auto;
+    }
+
+    .home-container.home-v4 #albumMasonry.album-masonry {
+        columns: 2 130px !important;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .hv5-chip,
+    .home-container.home-v4 .hv4-main #contentList .content-card,
+    .home-container.home-v4 #albumMasonry .album-photo-card {
+        transition: none !important;
+    }
+
+    .hv5-chip:hover,
+    .home-container.home-v4 .hv4-main #contentList .content-card:hover {
+        transform: none !important;
+    }
+}
+
+/* ============================================================
+ * ⑨ 首轮验收修正（v5 修 1）
+ *   1. .hv4-tabs 在 390 视口实测宽 416px 撑破容器（scrollWidth 426 > 390），
+ *      此处强制 width/max-width:100% 并 box-sizing，溢出交回内部横向滚动
+ *   2. 空态时主栏 119px vs 侧栏 1118px 高度失衡，且侧栏与父容器同高
+ *      导致 sticky 无位移余量；给主栏空态最小高度、侧栏限高内部滚动
+ * ============================================================ */
+.home-container.home-v4 .hv4-interact .hv4-tabs,
+.home-container.home-v4 .hv4-tabs {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    align-self: stretch;
+}
+
+.home-container.home-v4 .hv4-interact {
+    max-width: 100%;
+    min-width: 0;
+}
+
+.home-container.home-v4 .hv4-main #contentSection > #contentList,
+.home-container.home-v4 .hv4-main #contentSection {
+    box-sizing: border-box;
+}
+
+.home-container.home-v4 .hv4-main #contentSection {
+    min-height: 360px;
+}
+
+/* 桌面端侧栏：限高 + 内部滚动，sticky 才真正产生跟随 */
+@media (min-width: 1025px) {
+    .home-container.home-v4 .hv4-side {
+        position: sticky;
+        top: 88px;
+        /* 关键：grid 默认 stretch 会把侧栏拉到与父容器等高，
+           导致 sticky 无位移余量（实测 sideTop 恒等于 layoutTop）。
+           align-self:start 让侧栏按内容高度收窄（受 max-height 约束）。 */
+        align-self: start;
+        max-height: calc(100vh - 110px);
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        padding-right: 4px;
+        scrollbar-width: thin;
+    }
+
+    .home-container.home-v4 .hv4-side::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    .home-container.home-v4 .hv4-side::-webkit-scrollbar-thumb {
+        background: var(--hv4-border);
+        border-radius: 3px;
+    }
+}

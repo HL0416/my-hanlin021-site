@@ -507,4 +507,50 @@
      * #quickFeedback 的点击由 auth.js 绑定（openFeedback，负责弹窗 display 与 modal-in），
      * 此处不再重复绑定。
      */
+
+    /* ---------------- v5：通栏胶囊导航条高亮联动 ----------------
+     * 1) 点击 chip 立即高亮
+     * 2) 互动区 Tab 切换时（本文件派发 hv4:tabchange，detail = {group, tab}）
+     *    同步高亮对应 chip
+     * 3) 非 Tab 类锚点（内容/公告/留言）随 hash 变化同步
+     */
+    (function () {
+        var bar = document.querySelector('.hv5-quickbar');
+        if (!bar) return;
+        var chips = Array.prototype.slice.call(bar.querySelectorAll('.hv5-chip'));
+        if (!chips.length) return;
+
+        var byTab = {};
+        var byHash = {};
+        chips.forEach(function (chip) {
+            var tab = chip.getAttribute('data-hv4-goto');
+            var href = chip.getAttribute('href') || '';
+            if (tab) byTab[tab] = chip;
+            if (href.charAt(0) === '#') byHash[href.slice(1)] = chip;
+        });
+
+        function setActive(chip) {
+            if (!chip) return;
+            chips.forEach(function (c) {
+                c.classList.toggle('is-active', c === chip);
+            });
+        }
+
+        chips.forEach(function (chip) {
+            chip.addEventListener('click', function () {
+                setActive(chip);
+            });
+        });
+
+        document.addEventListener('hv4:tabchange', function (e) {
+            var tab = e && e.detail && e.detail.tab;
+            if (tab && byTab[tab]) setActive(byTab[tab]);
+        });
+
+        window.addEventListener('hashchange', function () {
+            var id = (window.location.hash || '').slice(1);
+            if (id && byHash[id]) setActive(byHash[id]);
+        });
+    })();
+
 })();
