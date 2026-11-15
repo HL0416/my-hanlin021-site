@@ -321,8 +321,9 @@ export default async function handler(req) {
             const nickname = String(body.nickname || '').trim();
             let role = String(body.role || 'user');
             if (role !== 'super_admin' && role !== 'admin' && role !== 'user') role = 'user';
-            if (role === 'super_admin' && data.r !== 'super_admin') {
-                return Response.json({ ok: false, error: '仅超级管理员可创建超级管理员' }, { status: 403, headers: corsHeaders });
+            // 管理员账号的创建权仅归超级管理员，避免普通管理员自行创建管理员并自定初始口令
+            if ((role === 'super_admin' || role === 'admin') && normalizeRole(data.r) !== 'super_admin') {
+                return Response.json({ ok: false, error: '仅超级管理员可创建管理员账号' }, { status: 403, headers: corsHeaders });
             }
             if (!username || username.length > 6) {
                 return Response.json({ ok: false, error: '用户名需为 1-6 个字符' }, { status: 400, headers: corsHeaders });
