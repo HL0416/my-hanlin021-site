@@ -21,8 +21,31 @@ const PBKDF2_KEYLEN = 32;
 const PBKDF2_DIGEST = 'sha256';
 const MIN_PASSWORD_LENGTH = 8;
 const SUPER_ADMIN_USERNAME = 'admin';
+// 口令强度策略按角色分化：
+//   超级管理员(super_admin) / 管理员(admin) —— 可任意设置口令，仅保留 3 位下限兜底；
+//   普通用户(user) —— 至少 MIN_PASSWORD_LENGTH 位，且在大写字母 / 小写字母 / 数字 / 符号中至少包含三种。
+const PASSWORD_POLICY_FREE_ROLES = ['super_admin', 'admin'];
+const ADMIN_PASSWORD_MIN_LENGTH = 3;
+const PASSWORD_POLICY_REQUIREMENT = '密码至少 8 位，且需包含大写字母、小写字母、数字、符号中的至少三种';
+function normalizeRole(role) {
+    return String(role == null ? '' : role).trim().toLowerCase();
+}
 function isWeakPolicyExempt(username) {
     return String(username == null ? '' : username).trim().toLowerCase() === SUPER_ADMIN_USERNAME;
+}
+// 该用户是否免于强度策略（管理员 / 超管，含历史超管用户名 admin 兜底）
+function isPasswordPolicyFreeUser(user) {
+    if (!user) return false;
+    if (PASSWORD_POLICY_FREE_ROLES.indexOf(normalizeRole(user.role)) !== -1) return true;
+    return isWeakPolicyExempt(user.username);
+}
+// 返回 null 表示通过；否则返回可直接回给前端的错误文案
+function passwordPolicyError(password, user) {
+    const s = String(password == null ? '' : password);
+    if (isPasswordPolicyFreeUser(user)) {
+        return s.length < ADMIN_PASSWORD_MIN_LENGTH ? ('管理员口令至少需要 ' + ADMIN_PASSWORD_MIN_LENGTH + ' 位') : null;
+    }
+    return isStrongPassword(s) ? null : PASSWORD_POLICY_REQUIREMENT;
 }
 
 function hashPassword(password) {
@@ -72,12 +95,16 @@ function checkPassword(user, password) {
     return { ok: false, legacy: false };
 }
 
+// 普通用户口令强度：≥8 位，且大写 / 小写 / 数字 / 符号四类中至少包含三类
 function isStrongPassword(p) {
-    const s = String(p || '');
+    const s = String(p == null ? '' : p);
     if (s.length < MIN_PASSWORD_LENGTH) return false;
-    if (/^\d+$/.test(s)) return false;
-    if (/^[A-Za-z]+$/.test(s)) return false;
-    return true;
+    let classes = 0;
+    if (/[a-z]/.test(s)) classes += 1;
+    if (/[A-Z]/.test(s)) classes += 1;
+    if (/\d/.test(s)) classes += 1;
+    if (/[^A-Za-z0-9]/.test(s)) classes += 1;
+    return classes >= 3;
 }
 
 // 写入哈希并彻底清除明文口令字段
@@ -217,8 +244,8 @@ export default async function handler(req) {
                 migrated = true;
             }
 
-            // 弱口令（旧默认 admin / 纯数字 / 纯字母 / 少于 8 位）要求登录后立即改密
-            const mustChangePassword = !isWeakPolicyExempt(user && user.username) && !isStrongPassword(body.password);
+            // 弱口令（旧默认 admin / 纯数字 / 纯字母 / 少于 8 位 / 复杂度不足）要求登录后立即改密；管理员角色不提示
+            const mustChangePassword = !isPasswordPolicyFreeUser(user) && !isStrongPassword(body.password);
             return Response.json({
                 ok: true,
                 token: issueToken(user),
@@ -238,8 +265,11 @@ export default async function handler(req) {
             if (/^\d{6,}$/.test(username) || username.indexOf('@') !== -1) {
                 return Response.json({ ok: false, error: '用户名不能是手机号或邮箱格式' }, { status: 400, headers: corsHeaders });
             }
-            if (!isStrongPassword(password)) {
-                return Response.json({ ok: false, error: '密码至少 8 位，且不能是纯数字或纯字母' }, { status: 400, headers: corsHeaders });
+            {
+                const regPwdError = passwordPolicyError(password, { role: 'user' });
+                if (regPwdError) {
+                    return Response.json({ ok: false, error: regPwdError }, { status: 400, headers: corsHeaders });
+                }
             }
             const users = await readUsers(store);
             if (users.some(function (u) { return u && u.username === username; })) {
@@ -300,8 +330,9 @@ export default async function handler(req) {
             if (/^\d{6,}$/.test(username) || username.indexOf('@') !== -1) {
                 return Response.json({ ok: false, error: '用户名不能是手机号或邮箱格式' }, { status: 400, headers: corsHeaders });
             }
-            if (!isStrongPassword(password)) {
-                return Response.json({ ok: false, error: '密码至少 8 位，且不能是纯数字或纯字母' }, { status: 400, headers: corsHeaders });
+            const createPwdError = passwordPolicyError(password, { role: role });
+            if (createPwdError) {
+                return Response.json({ ok: false, error: createPwdError }, { status: 400, headers: corsHeaders });
             }
             const users = await readUsers(store);
             if (users.some(function (u) { return u && u.username === username; })) {
@@ -340,8 +371,9 @@ export default async function handler(req) {
                 return Response.json({ ok: false, error: '原密码错误' }, { status: 401, headers: corsHeaders });
             }
             const newPassword = String(body.newPassword || '');
-            if (isWeakPolicyExempt(data && data.u) ? (newPassword.length < 3) : !isStrongPassword(newPassword)) {
-                return Response.json({ ok: false, error: '新口令至少 8 位，且不能是纯数字或纯字母' }, { status: 400, headers: corsHeaders });
+            const changePwdError = passwordPolicyError(newPassword, user);
+            if (changePwdError) {
+                return Response.json({ ok: false, error: changePwdError }, { status: 400, headers: corsHeaders });
             }
             if (String(body.oldPassword || '') === newPassword) {
                 return Response.json({ ok: false, error: '新口令不能与旧口令相同' }, { status: 400, headers: corsHeaders });
@@ -377,13 +409,14 @@ export default async function handler(req) {
             }
             const target = String(body.username || '').trim();
             const newPassword = String(body.newPassword || '');
-            if (isWeakPolicyExempt(target) ? (newPassword.length < 3) : !isStrongPassword(newPassword)) {
-                return Response.json({ ok: false, error: '新口令至少 8 位，且不能是纯数字或纯字母' }, { status: 400, headers: corsHeaders });
-            }
             const users = await readUsers(store);
             const user = users.find(function (u) { return u && u.username === target; });
             if (!user) {
                 return Response.json({ ok: false, error: '账号不存在' }, { status: 404, headers: corsHeaders });
+            }
+            const resetPwdError = passwordPolicyError(newPassword, user);
+            if (resetPwdError) {
+                return Response.json({ ok: false, error: resetPwdError }, { status: 400, headers: corsHeaders });
             }
             applyPassword(user, newPassword);
             await store.setJSON('users', users);
