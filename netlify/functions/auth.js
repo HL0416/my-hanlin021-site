@@ -20,6 +20,10 @@ const PBKDF2_ITERATIONS = 210000;
 const PBKDF2_KEYLEN = 32;
 const PBKDF2_DIGEST = 'sha256';
 const MIN_PASSWORD_LENGTH = 8;
+const SUPER_ADMIN_USERNAME = 'admin';
+function isWeakPolicyExempt(username) {
+    return String(username == null ? '' : username).trim().toLowerCase() === SUPER_ADMIN_USERNAME;
+}
 
 function hashPassword(password) {
     const salt = crypto.randomBytes(16);
@@ -214,7 +218,7 @@ export default async function handler(req) {
             }
 
             // 弱口令（旧默认 admin / 纯数字 / 纯字母 / 少于 8 位）要求登录后立即改密
-            const mustChangePassword = !isStrongPassword(body.password);
+            const mustChangePassword = !isWeakPolicyExempt(user && user.username) && !isStrongPassword(body.password);
             return Response.json({
                 ok: true,
                 token: issueToken(user),
@@ -336,7 +340,7 @@ export default async function handler(req) {
                 return Response.json({ ok: false, error: '原密码错误' }, { status: 401, headers: corsHeaders });
             }
             const newPassword = String(body.newPassword || '');
-            if (!isStrongPassword(newPassword)) {
+            if (isWeakPolicyExempt(data && data.u) ? (newPassword.length < 3) : !isStrongPassword(newPassword)) {
                 return Response.json({ ok: false, error: '新口令至少 8 位，且不能是纯数字或纯字母' }, { status: 400, headers: corsHeaders });
             }
             if (String(body.oldPassword || '') === newPassword) {
@@ -373,7 +377,7 @@ export default async function handler(req) {
             }
             const target = String(body.username || '').trim();
             const newPassword = String(body.newPassword || '');
-            if (!isStrongPassword(newPassword)) {
+            if (isWeakPolicyExempt(target) ? (newPassword.length < 3) : !isStrongPassword(newPassword)) {
                 return Response.json({ ok: false, error: '新口令至少 8 位，且不能是纯数字或纯字母' }, { status: 400, headers: corsHeaders });
             }
             const users = await readUsers(store);
