@@ -370,6 +370,10 @@ export default async function handler(req) {
             if (!check.ok) {
                 return Response.json({ ok: false, error: '原密码错误' }, { status: 401, headers: corsHeaders });
             }
+            // 管理员(admin)口令仅允许超级管理员修改：admin 不能自助改密
+            if (normalizeRole(user.role) === 'admin') {
+                return Response.json({ ok: false, error: '管理员口令仅可由超级管理员修改，请联系超级管理员' }, { status: 403, headers: corsHeaders });
+            }
             const newPassword = String(body.newPassword || '');
             const changePwdError = passwordPolicyError(newPassword, user);
             if (changePwdError) {
@@ -413,6 +417,10 @@ export default async function handler(req) {
             const user = users.find(function (u) { return u && u.username === target; });
             if (!user) {
                 return Response.json({ ok: false, error: '账号不存在' }, { status: 404, headers: corsHeaders });
+            }
+            // 管理员(admin / super_admin)口令仅允许超级管理员重置
+            if (PASSWORD_POLICY_FREE_ROLES.indexOf(normalizeRole(user.role)) !== -1 && normalizeRole(data && data.r) !== 'super_admin') {
+                return Response.json({ ok: false, error: '管理员口令仅可由超级管理员修改，普通管理员无权重置' }, { status: 403, headers: corsHeaders });
             }
             const resetPwdError = passwordPolicyError(newPassword, user);
             if (resetPwdError) {
