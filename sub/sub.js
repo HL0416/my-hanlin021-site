@@ -299,6 +299,7 @@
     function boot() {
         var session = renderSession();
         var cfg = null;
+        $('subState').textContent = '正在读取主站数据…';
 
         apiGet(KEY_CONFIG).then(function (v) {
             cfg = applyConfig(v);
@@ -326,16 +327,18 @@
                 var users = res[2] || [], notices = res[0] || [], guest = res[1] || [];
                 renderMetrics(users, notices, guest);
                 var hasCloud = !!(token() && session);
+                var stamp = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
                 $('subState').textContent = hasCloud
-                    ? '数据源：主站云端 · 成员共 ' + users.length + ' 位 · ' + new Date().toLocaleString('zh-CN')
-                    : '数据源：本地缓存（登录主站后可读取云端全量成员） · ' + new Date().toLocaleString('zh-CN');
+                    ? '数据源：主站云端 · 成员 ' + users.length + ' 位 · 更新于 ' + stamp
+                    : '成员名录与公告实时同步自主站 · 登录主站后可查看完整成员信息';
             });
         }).catch(function () {
             applyConfig(null);
-            $('subState').textContent = '附属站点配置读取失败，已使用默认展示。';
+            if (token() && session) {
+                $('subState').textContent = '配置读取失败，暂按默认样式展示。';
+            }
+            if (window.console && console.warn) { console.warn('[subsite] siteSubsiteConfig 读取失败，已回退默认配置'); }
         });
-
-        $('subState').textContent = '正在读取主站数据…';
     }
 
     if (document.readyState === 'loading') {
