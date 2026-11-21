@@ -1,5 +1,5 @@
 /* service-worker.js - 我的站点离线缓存（v3：导航网络优先 + 预缓存 + 离线兜底） */
-var CACHE_NAME = 'my-site-v12';
+var CACHE_NAME = 'my-site-v13';
 var RUNTIME_CACHE = 'my-site-runtime-v12';
 
 var CORE_ASSETS = [
@@ -23,7 +23,8 @@ var CORE_ASSETS = [
   './home.css',
   './home-v5.css',
   './enhance.js',
-  './manifest.json'
+  './manifest.json',
+  './sub/'
 ];
 
 // 安装：逐个预热核心资源，单个失败不影响整体安装（网络抖动时不至于整站缓存失败）
@@ -97,6 +98,12 @@ function networkFirstPage(request) {
       if (cached) { return cached; }
       return caches.match(request).then(function (c2) {
         if (c2) { return c2; }
+        // 附属站点(/sub/)离线时回退其自身页面，避免错显主站首页
+        if (new URL(request.url).pathname.indexOf('/sub') === 0) {
+          return caches.match('./sub/').then(function (sub) {
+            return sub || caches.match('./index.html');
+          });
+        }
         return caches.match('./index.html').then(function (home) {
           if (home) { return home; }
           return new Response(

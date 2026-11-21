@@ -7103,3 +7103,68 @@ body[data-theme="dark"] .btn-ghost:hover {
     gap: 10px;
     margin-top: 10px;
 }
+
+
+/* ================= 附属站点管理面板（超管专属） ================= */
+.subsite-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 14px;
+}
+.subsite-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 14px;
+}
+.subsite-field > label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary, #5b647a);
+}
+.subsite-field input[type="text"],
+.subsite-field textarea,
+.subsite-field input[type="color"] {
+    width: 100%;
+    padding: 8px 11px;
+    border: 1px solid var(--border-color, #dfe3ec);
+    border-radius: 9px;
+    font-size: 13.5px;
+    font-family: inherit;
+    background: var(--bg-input, #fff);
+    color: inherit;
+    box-sizing: border-box;
+}
+.subsite-field input[type="color"] { padding: 3px; height: 38px; cursor: pointer; }
+.subsite-field textarea { resize: vertical; min-height: 72px; }
+.subsite-check {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13.5px;
+    cursor: pointer;
+}
+.subsite-modules { display: flex; flex-wrap: wrap; gap: 18px; }
+.subsite-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 12px;
+    margin-bottom: 14px;
+}
+.subsite-stat {
+    padding: 12px 14px;
+    border: 1px solid var(--border-color, #dfe3ec);
+    border-radius: 11px;
+    background: var(--bg-soft, #f7f9fc);
+}
+.subsite-stat strong {
+    display: block;
+    font-size: 20px;
+    line-height: 1.2;
+    color: var(--primary, #2f6fed);
+}
+.subsite-stat span { font-size: 12.5px; color: var(--text-secondary, #5b647a); }
+@media (max-width: 720px) {
+    .subsite-grid { grid-template-columns: 1fr; }
+}
+

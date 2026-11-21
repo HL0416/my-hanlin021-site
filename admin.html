@@ -66,6 +66,7 @@
                 <li><a href="#" class="drawer-link" data-tab="logs"><span class="drawer-icon">🧾</span>操作日志</a></li>
                 <li><a href="#" class="drawer-link" data-tab="autoBackup"><span class="drawer-icon">🗂️</span>自动备份</a></li>
                 <li data-super-only="1"><a href="#" class="drawer-link" data-tab="adminPerms"><span class="drawer-icon">🛡️</span>管理员权限</a></li>
+                <li data-super-only="1"><a href="#" class="drawer-link" data-tab="subsite"><span class="drawer-icon">🌐</span>附属站点</a></li>
                 <li><a href="#" class="drawer-link" data-tab="settings"><span class="drawer-icon">💾</span>备份恢复</a></li>
             </ul>
             <div class="drawer-section-title">我的</div>
@@ -121,6 +122,7 @@
                 <li><a href="#" data-tab="logs"><span class="nav-icon">🧾</span><span class="nav-text">操作日志</span></a></li>
                 <li><a href="#" data-tab="autoBackup"><span class="nav-icon">🗂️</span><span class="nav-text">自动备份</span></a></li>
                 <li data-super-only="1"><a href="#" data-tab="adminPerms"><span class="nav-icon">🛡️</span><span class="nav-text">管理员权限</span></a></li>
+                <li data-super-only="1"><a href="#" data-tab="subsite"><span class="nav-icon">🌐</span><span class="nav-text">附属站点</span></a></li>
                 <li><a href="#" data-tab="settings" class="backup-nav-item"><span class="nav-icon">💾</span><span class="nav-text">备份恢复</span></a></li>
                 <li id="viewHomeLi"><a href="index.html" class="btn btn-ghost btn-sm"><span class="nav-icon">🏠</span><span class="nav-text">查看首页</span></a></li>
             </ul>
@@ -738,6 +740,90 @@
                 </div>
                 <div id="adminPermsList" class="table-wrapper"></div>
             </section>
+
+            <section id="tab-subsite" class="tab-panel">
+                <div class="admin-card">
+                    <div class="admin-card-title">附属站点</div>
+                    <p class="page-tip">附属站点是主站旁挂的小型站点（/sub/），不单独存储账号：成员名录、公告、留言全部直接读取主站数据，主站成员变化后自动同步，无需推送。以下配置仅超级管理员可修改。</p>
+
+                    <div class="subsite-grid">
+                        <div class="subsite-field">
+                            <label for="subEnabled">启用状态</label>
+                            <label class="subsite-check"><input type="checkbox" id="subEnabled"> 启用附属站点</label>
+                        </div>
+                        <div class="subsite-field">
+                            <label for="subName">站点名称</label>
+                            <input type="text" id="subName" maxlength="20" placeholder="附属站点">
+                        </div>
+                        <div class="subsite-field">
+                            <label for="subSubtitle">副标题</label>
+                            <input type="text" id="subSubtitle" maxlength="30" placeholder="与主站成员信息同步">
+                        </div>
+                        <div class="subsite-field">
+                            <label for="subAccent">主题色</label>
+                            <input type="color" id="subAccent" value="#2f6fed">
+                        </div>
+                    </div>
+
+                    <div class="subsite-field">
+                        <label for="subIntro">站点简介</label>
+                        <textarea id="subIntro" rows="3" placeholder="显示在附属站首页顶部的说明文字"></textarea>
+                    </div>
+
+                    <div class="subsite-field">
+                        <label>展示模块</label>
+                        <div class="subsite-modules">
+                            <label class="subsite-check"><input type="checkbox" id="subModuleMembers"> 成员名录</label>
+                            <label class="subsite-check"><input type="checkbox" id="subModuleNotices"> 站内公告</label>
+                            <label class="subsite-check"><input type="checkbox" id="subModuleGuestbook"> 留言墙</label>
+                        </div>
+                    </div>
+
+                    <div class="subsite-field">
+                        <label for="subNotice">停用提示语（可选）</label>
+                        <input type="text" id="subNotice" maxlength="60" placeholder="站点维护中，请稍后访问主站">
+                    </div>
+
+                    <div class="backup-config-row">
+                        <button type="button" class="btn btn-primary btn-sm" id="btnSubSave">保存配置</button>
+                        <button type="button" class="btn btn-secondary btn-sm" id="btnSubReload">重新载入</button>
+                        <button type="button" class="btn btn-secondary btn-sm" id="btnSubOpen">打开附属站</button>
+                        <button type="button" class="btn btn-secondary btn-sm" id="btnSubCopy">复制链接</button>
+                    </div>
+                    <p class="page-tip" id="subSaveState">尚未保存</p>
+                    <p class="page-tip">访问地址：<a id="subUrlText" href="/sub/" target="_blank" rel="noopener">/sub/</a></p>
+                </div>
+
+                <div class="admin-card">
+                    <div class="admin-card-title">成员同步状态</div>
+                    <div class="subsite-stats">
+                        <div class="subsite-stat"><strong id="subStatTotal">—</strong><span>同步成员</span></div>
+                        <div class="subsite-stat"><strong id="subStatAdmin">—</strong><span>管理员</span></div>
+                        <div class="subsite-stat"><strong id="subStatNormal">—</strong><span>普通成员</span></div>
+                    </div>
+                    <div class="backup-config-row">
+                        <button type="button" class="btn btn-secondary btn-sm" id="btnSubRefreshMembers">立即同步成员</button>
+                    </div>
+                    <p class="page-tip" id="subMemberState">正在同步主站成员…</p>
+                </div>
+
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th style="width:90px;">账号</th>
+                                <th>用户名</th>
+                                <th>昵称</th>
+                                <th style="width:110px;">角色</th>
+                                <th style="width:110px;">注册日期</th>
+                            </tr>
+                        </thead>
+                        <tbody id="subMemberBody">
+                            <tr><td colspan="5" class="empty-tip">暂无成员数据</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
         </div>
     </main>
 
@@ -905,6 +991,7 @@
 
     <script src="auth.js"></script>
     <script src="enhance.js"></script>
+<script src="admin-subsite.js"></script>
     <script>
     // ===== 管理后台统一导航抽屉（与首页/个人页同款交互：汉堡展开、遮罩/关闭按钮收起） =====
     (function() {

@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>附属站点 · 成员同步门户</title>
+    <meta name="description" content="主站旁挂的成员同步门户：成员名录、公告与留言实时读取主站数据。">
+    <meta name="theme-color" content="#2f6fed">
+    <link rel="stylesheet" href="sub.css?v=2">
+</head>
+<body>
+    <noscript><p style="font-family:system-ui;padding:16px;background:#fff4e5;color:#7a4a00">附属站点需要启用 JavaScript 才能同步主站数据，请在浏览器设置中开启后刷新。</p></noscript>
+    <header class="sub-header">
+        <div class="sub-header-inner">
+            <a class="sub-brand" href="../index.html">
+                <span class="sub-brand-mark" id="subBrandMark">附</span>
+                <span class="sub-brand-text">
+                    <strong id="subSiteName">附属站点</strong>
+                    <small id="subSiteSubtitle">与主站成员信息同步</small>
+                </span>
+            </a>
+            <nav class="sub-nav">
+                <a href="../index.html">返回主站</a>
+                <a href="#members">成员名录</a>
+                <a href="#notices">站内公告</a>
+                <a href="#guestbook">留言墙</a>
+                <span class="sub-user" id="subUserChip" hidden></span>
+                <a class="sub-login" href="../login.html?next=/sub/index.html" id="subLoginLink">登录</a>
+            </nav>
+        </div>
+    </header>
+
+    <section class="sub-hero">
+        <div class="sub-hero-inner">
+            <p class="sub-eyebrow" id="subEyebrow">附属站点</p>
+            <h1 id="subHeroTitle">载入中…</h1>
+            <p class="sub-lead" id="subHeroIntro">正在读取主站配置与成员数据。</p>
+            <div class="sub-metrics" id="subMetrics">
+                <div class="sub-metric"><strong id="mMembers">—</strong><span>同步成员</span></div>
+                <div class="sub-metric"><strong id="mAdmins">—</strong><span>管理员</span></div>
+                <div class="sub-metric"><strong id="mNotices">—</strong><span>公告</span></div>
+                <div class="sub-metric"><strong id="mGuestbook">—</strong><span>留言</span></div>
+            </div>
+            <p class="sub-state" id="subState">—</p>
+        </div>
+    </section>
+
+    <main class="sub-main">
+        <section class="sub-block" id="notices" hidden>
+            <div class="sub-block-head">
+                <h2>站内公告</h2>
+                <span class="sub-block-hint">与主站公告同源</span>
+            </div>
+            <ul class="sub-list" id="subNotices">
+                <li class="sub-empty">暂无公告</li>
+            </ul>
+        </section>
+
+        <section class="sub-block" id="members" hidden>
+            <div class="sub-block-head">
+                <h2>成员名录</h2>
+                <div class="sub-block-tools">
+                    <input type="search" id="subMemberSearch" placeholder="搜索昵称或账号" autocomplete="off">
+                    <span class="sub-block-hint" id="subMemberHint">—</span>
+                </div>
+            </div>
+            <div class="sub-members" id="subMembers">
+                <p class="sub-empty">正在同步主站成员…</p>
+            </div>
+        </section>
+
+        <section class="sub-block" id="guestbook" hidden>
+            <div class="sub-block-head">
+                <h2>留言墙</h2>
+                <span class="sub-block-hint">与主站留言同源</span>
+            </div>
+            <ul class="sub-list" id="subGuestbookList">
+                <li class="sub-empty">暂无留言</li>
+            </ul>
+        </section>
+
+        <section class="sub-block" id="subDisabled" hidden>
+            <div class="sub-block-head"><h2>附属站点未启用</h2></div>
+            <p class="sub-empty">超级管理员尚未在后台「附属站点」中启用本页。启用后将同步展示主站成员与内容。</p>
+        </section>
+    </main>
+
+    <footer class="sub-footer">
+        <span id="subFootNote">附属站点 · 成员数据实时同步自主站</span>
+        <span class="sub-foot-links">
+            <a href="../index.html">主站</a>
+            <a href="../help.html">帮助中心</a>
+            <a href="../about.html">关于</a>
+        </span>
+    </footer>
+
+    <script src="sub.js?v=2"></script>
+</body>
+</html>

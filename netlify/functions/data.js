@@ -23,7 +23,8 @@ const PUBLIC_READ_KEYS = new Set([
     'announcements', 'siteGuestbook', 'siteContents', 'siteMoments', 'siteTheme'
 ]);
 // 读公开、写受限的键：登录页需要读取注册开关等配置，但修改必须由管理员发起
-const READ_PUBLIC_WRITE_ADMIN_KEYS = new Set(['siteSettings']);
+// siteSubsiteConfig：附属站点(/sub/)配置，匿名可读用于前端渲染，仅超级管理员可写
+const READ_PUBLIC_WRITE_ADMIN_KEYS = new Set(['siteSettings', 'siteSubsiteConfig']);
 const ADMIN_ONLY_KEYS = new Set([
     'adminLogs', 'siteVisitLog', 'siteDeletedUsers', 'siteSettings', 'managedFiles'
 ]);
@@ -270,6 +271,10 @@ export default async function handler(req) {
             // 审计与设备类键的写入仅限管理员
             if (isAdminOnlyKey(writeKey) && !isAdmin(session)) {
                 return Response.json({ ok: false, error: 'forbidden' }, { status: 403, headers: corsHeaders });
+            }
+            // 附属站点配置：仅超级管理员可写
+            if (SUPER_ONLY_WRITE_KEYS.has(writeKey) && (!session || session.r !== 'super_admin')) {
+                return Response.json({ ok: false, error: 'super admin required' }, { status: 403, headers: corsHeaders });
             }
             // 管理员整表写 users：口令列一律沿用云端原值（前端拿不到口令，整表写不得成为改口令或抹口令的旁路）
             let finalValue = writeValue;
