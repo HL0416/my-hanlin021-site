@@ -28,6 +28,8 @@ const READ_PUBLIC_WRITE_ADMIN_KEYS = new Set(['siteSettings', 'siteSubsiteConfig
 const ADMIN_ONLY_KEYS = new Set([
     'adminLogs', 'siteVisitLog', 'siteDeletedUsers', 'siteSettings', 'managedFiles'
 ]);
+// 超级管理员专属写键：附属站点(/sub/)配置仅超级管理员可改，普通管理员不可写
+const SUPER_ONLY_WRITE_KEYS = new Set(['siteSubsiteConfig']);
 const SENSITIVE_USER_FIELDS = ['password', 'passwordHash', 'phone', 'email', 'securityQuestion', 'securityAnswer'];
 
 function getSecret() {

@@ -6665,7 +6665,24 @@ window.exportGuestbookList = function() {
         if (next.length !== list.length) { writePending(next); }
     }
 
+    // 同步状态提示条仅在「超级管理员 + 后台管理界面(admin.html)」展示，其余页面完全静默
+    function inSuperAdminConsole() {
+        try {
+            if (typeof location === 'undefined' || !location.pathname) { return false; }
+            var path = String(location.pathname).toLowerCase();
+            if (!/^\/admin(?:\.html)?$/.test(path)) { return false; }
+            var sess = getSession();
+            if (!sess || !sess.username) { return false; }
+            var u = findUserByUsername(getUsers(), sess.username);
+            var role = (u && u.role) ? u.role : sess.role;
+            return role === 'super_admin';
+        } catch (e) {
+            return false;
+        }
+    }
+
     function ensureBar() {
+        if (!inSuperAdminConsole()) { return null; }
         if (bar && document.body && document.body.contains(bar)) { return bar; }
         if (!document.body) { return null; }
         bar = document.createElement('div');
