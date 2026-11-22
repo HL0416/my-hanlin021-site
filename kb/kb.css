@@ -206,3 +206,7 @@ a { color: inherit; text-decoration: none; }
     .kb-detail-panel { width: 100%; padding: 18px 16px 24px; }
     .kb-brand-text p { display: none; }
 }
+
+/* [hidden] 兜底：.kb-detail 等容器自带 display:flex，会盖掉浏览器默认的 [hidden]{display:none}
+   不加这条时详情抽屉遮罩会常驻，拦截全页点击与输入 */
+[hidden] { display: none !important; }

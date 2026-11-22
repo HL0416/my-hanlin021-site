@@ -193,7 +193,7 @@
         renderStats();
         if (!body) { return; }
         if (!list.length) {
-            body.innerHTML = '<tr><td colspan="5" class="empty-tip">暂无条目，请在上方填写学科、标题与正文后保存</td></tr>';
+            body.innerHTML = '<tr><td colspan="5" class="empty-tip">云端暂无条目（此状态下前台 /kb/ 会展示内置示例数据）。请在上方填写学科、标题与正文后保存</td></tr>';
             return;
         }
         body.innerHTML = list.map(function (e) {
