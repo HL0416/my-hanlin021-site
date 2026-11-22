@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>学科知识库 · 我的站点</title>
+<meta name="description" content="主站附属的学科知识库站点，按学科整理知识点、公式、解题模型与易错笔记。">
+<link rel="stylesheet" href="kb.css?v=1">
+<link rel="manifest" href="../manifest.json">
+</head>
+<body>
+<header class="kb-header">
+    <div class="kb-header-inner">
+        <div class="kb-brand">
+            <span class="kb-logo">知</span>
+            <div class="kb-brand-text">
+                <h1 id="kbName">学科知识库</h1>
+                <p id="kbSubtitle">按学科整理知识点 · 公式 · 易错点</p>
+            </div>
+        </div>
+        <nav class="kb-nav">
+            <a href="../index.html">返回主站</a>
+            <a href="../sub/">成员门户</a>
+            <a href="#kbSearchBox" id="kbSearchJump">搜索</a>
+            <a id="kbAdminLink" href="../admin.html" hidden>知识库后台</a>
+            <a id="kbLoginLink" href="../login.html?next=/kb/index.html">登录</a>
+            <span id="kbSession" class="kb-session" hidden></span>
+        </nav>
+    </div>
+</header>
+
+<div id="kbNotice" class="kb-notice" hidden></div>
+
+<main class="kb-main">
+    <aside class="kb-side">
+        <div class="kb-search" id="kbSearchBox">
+            <input id="kbSearch" type="search" placeholder="搜索标题 / 标签 / 正文…" autocomplete="off">
+            <button id="kbSearchClear" class="kb-clear" type="button" hidden>清除</button>
+        </div>
+        <div class="kb-side-title">学科分类</div>
+        <ul id="kbSubjects" class="kb-subjects"></ul>
+        <div class="kb-side-title">知识库概览</div>
+        <div class="kb-stats">
+            <div><strong id="kbStatTotal">0</strong><span>条目</span></div>
+            <div><strong id="kbStatSubject">0</strong><span>学科</span></div>
+            <div><strong id="kbStatTag">0</strong><span>标签</span></div>
+        </div>
+        <div class="kb-side-note" id="kbIntro">这里是主站的第二个附属站点，用于沉淀各学科知识点、公式与解题模型。</div>
+    </aside>
+
+    <section class="kb-content">
+        <div class="kb-toolbar">
+            <h2 id="kbListTitle">全部条目</h2>
+            <div class="kb-tools">
+                <select id="kbSort" class="kb-select">
+                    <option value="updated">按更新时间</option>
+                    <option value="title">按标题</option>
+                    <option value="subject">按学科</option>
+                </select>
+            </div>
+        </div>
+        <p id="kbStatus" class="kb-status">正在读取知识库…</p>
+        <div id="kbList" class="kb-list" hidden></div>
+        <div id="kbEmpty" class="kb-empty" hidden>
+            <p class="kb-empty-title">暂无匹配条目</p>
+            <p class="kb-empty-tip">换个学科或关键词试试；知识库内容由超级管理员在后台维护。</p>
+        </div>
+        <div id="kbDisabled" class="kb-empty" hidden>
+            <p class="kb-empty-title">知识库暂未开放</p>
+            <p class="kb-empty-tip">超级管理员尚未启用该附属站点。</p>
+        </div>
+    </section>
+</main>
+
+<div id="kbDetail" class="kb-detail" hidden>
+    <div class="kb-detail-mask" data-close="1"></div>
+    <article class="kb-detail-panel" role="dialog" aria-modal="true" aria-labelledby="kbDetailTitle">
+        <header class="kb-detail-head">
+            <div>
+                <span id="kbDetailSubject" class="kb-badge">学科</span>
+                <h3 id="kbDetailTitle">条目标题</h3>
+                <p id="kbDetailMeta" class="kb-detail-meta"></p>
+            </div>
+            <button id="kbDetailClose" class="kb-close" type="button" aria-label="关闭">×</button>
+        </header>
+        <div id="kbDetailTags" class="kb-tags"></div>
+        <div id="kbDetailBody" class="kb-body"></div>
+    </article>
+</div>
+
+<footer class="kb-footer">
+    <div class="kb-footer-inner">
+        <span>学科知识库 · 主站附属站点</span>
+        <span class="kb-footer-links">
+            <a href="../index.html">主站</a>
+            <a href="../sub/">成员门户</a>
+            <a href="../help.html">帮助中心</a>
+        </span>
+    </div>
+</footer>
+
+<script src="kb.js?v=1"></script>
+</body>
+</html>

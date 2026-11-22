@@ -7168,3 +7168,62 @@ body[data-theme="dark"] .btn-ghost:hover {
     .subsite-grid { grid-template-columns: 1fr; }
 }
 
+
+
+/* ===== 学科知识库后台面板（/kb/） ===== */
+.subsite-field select {
+    width: 100%;
+    padding: 8px 11px;
+    border: 1px solid var(--border-color, #dfe3ec);
+    border-radius: 9px;
+    font-size: 13.5px;
+    font-family: inherit;
+    background: var(--bg-input, #fff);
+    color: inherit;
+    box-sizing: border-box;
+}
+.kb-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin: 4px 0 16px;
+}
+.kb-state { font-size: 12.5px; color: var(--text-secondary, #5b647a); }
+.kb-url {
+    font-size: 12.5px;
+    color: var(--text-muted, #8a93a6);
+    font-family: ui-monospace, Consolas, monospace;
+    word-break: break-all;
+}
+.kb-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    margin-bottom: 14px;
+}
+.kb-stat {
+    padding: 12px 14px;
+    border: 1px solid var(--border-color, #dfe3ec);
+    border-radius: 11px;
+    background: var(--bg-soft, #f7f9fc);
+}
+.kb-stat strong {
+    display: block;
+    font-size: 20px;
+    line-height: 1.2;
+    color: var(--primary, #2f6fed);
+}
+.kb-stat span { font-size: 12.5px; color: var(--text-secondary, #5b647a); }
+.kb-row-actions { white-space: nowrap; }
+.kb-row-actions .btn { margin-right: 6px; }
+.kb-row-actions .btn:last-child { margin-right: 0; }
+#kbEntryContent {
+    font-family: ui-monospace, Consolas, monospace;
+    font-size: 13px;
+    line-height: 1.75;
+    min-height: 180px;
+}
+@media (max-width: 720px) {
+    .kb-stats { grid-template-columns: 1fr; }
+}

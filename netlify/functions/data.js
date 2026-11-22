@@ -24,12 +24,13 @@ const PUBLIC_READ_KEYS = new Set([
 ]);
 // 读公开、写受限的键：登录页需要读取注册开关等配置，但修改必须由管理员发起
 // siteSubsiteConfig：附属站点(/sub/)配置，匿名可读用于前端渲染，仅超级管理员可写
-const READ_PUBLIC_WRITE_ADMIN_KEYS = new Set(['siteSettings', 'siteSubsiteConfig']);
+// siteKbConfig / kbEntries：学科知识库(/kb/)配置与条目，匿名可读用于前端渲染，仅超级管理员可写
+const READ_PUBLIC_WRITE_ADMIN_KEYS = new Set(['siteSettings', 'siteSubsiteConfig', 'siteKbConfig', 'kbEntries']);
 const ADMIN_ONLY_KEYS = new Set([
     'adminLogs', 'siteVisitLog', 'siteDeletedUsers', 'siteSettings', 'managedFiles'
 ]);
-// 超级管理员专属写键：附属站点(/sub/)配置仅超级管理员可改，普通管理员不可写
-const SUPER_ONLY_WRITE_KEYS = new Set(['siteSubsiteConfig']);
+// 超级管理员专属写键：附属站点(/sub/)配置与学科知识库(/kb/)配置、条目仅超级管理员可改，普通管理员不可写
+const SUPER_ONLY_WRITE_KEYS = new Set(['siteSubsiteConfig', 'siteKbConfig', 'kbEntries']);
 const SENSITIVE_USER_FIELDS = ['password', 'passwordHash', 'phone', 'email', 'securityQuestion', 'securityAnswer'];
 
 function getSecret() {

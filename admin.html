@@ -67,6 +67,7 @@
                 <li><a href="#" class="drawer-link" data-tab="autoBackup"><span class="drawer-icon">🗂️</span>自动备份</a></li>
                 <li data-super-only="1"><a href="#" class="drawer-link" data-tab="adminPerms"><span class="drawer-icon">🛡️</span>管理员权限</a></li>
                 <li data-super-only="1"><a href="#" class="drawer-link" data-tab="subsite"><span class="drawer-icon">🌐</span>附属站点</a></li>
+                <li data-super-only="1"><a href="#" class="drawer-link" data-tab="kb"><span class="drawer-icon">📚</span>学科知识库</a></li>
                 <li><a href="#" class="drawer-link" data-tab="settings"><span class="drawer-icon">💾</span>备份恢复</a></li>
             </ul>
             <div class="drawer-section-title">我的</div>
@@ -123,6 +124,7 @@
                 <li><a href="#" data-tab="autoBackup"><span class="nav-icon">🗂️</span><span class="nav-text">自动备份</span></a></li>
                 <li data-super-only="1"><a href="#" data-tab="adminPerms"><span class="nav-icon">🛡️</span><span class="nav-text">管理员权限</span></a></li>
                 <li data-super-only="1"><a href="#" data-tab="subsite"><span class="nav-icon">🌐</span><span class="nav-text">附属站点</span></a></li>
+                <li data-super-only="1"><a href="#" data-tab="kb"><span class="nav-icon">📚</span><span class="nav-text">学科知识库</span></a></li>
                 <li><a href="#" data-tab="settings" class="backup-nav-item"><span class="nav-icon">💾</span><span class="nav-text">备份恢复</span></a></li>
                 <li id="viewHomeLi"><a href="index.html" class="btn btn-ghost btn-sm"><span class="nav-icon">🏠</span><span class="nav-text">查看首页</span></a></li>
             </ul>
@@ -824,6 +826,109 @@
                     </table>
                 </div>
             </section>
+
+            <section id="tab-kb" class="tab-panel">
+                <div class="admin-card">
+                    <div class="admin-card-title">学科知识库站点</div>
+                    <p class="page-tip">学科知识库是主站的第二个附属站点（/kb/），用于沉淀各学科知识点、公式与解题模型。前台匿名可读，站点配置与知识条目仅超级管理员可维护。</p>
+
+                    <div class="subsite-grid">
+                        <div class="subsite-field">
+                            <label for="kbEnabled">启用状态</label>
+                            <label class="subsite-check"><input type="checkbox" id="kbEnabled"> 启用知识库站点</label>
+                        </div>
+                        <div class="subsite-field">
+                            <label for="kbName">站点名称</label>
+                            <input type="text" id="kbName" maxlength="20" placeholder="学科知识库">
+                        </div>
+                        <div class="subsite-field">
+                            <label for="kbSubtitle">副标题</label>
+                            <input type="text" id="kbSubtitle" maxlength="30" placeholder="按学科整理知识点 · 公式 · 易错点">
+                        </div>
+                        <div class="subsite-field">
+                            <label for="kbAccent">主题色</label>
+                            <input type="color" id="kbAccent" value="#0d9488">
+                        </div>
+                    </div>
+
+                    <div class="subsite-grid">
+                        <div class="subsite-field">
+                            <label for="kbSubjects">学科列表（逗号分隔）</label>
+                            <input type="text" id="kbSubjects" placeholder="语文,数学,英语,物理,化学,生物">
+                        </div>
+                        <div class="subsite-field">
+                            <label for="kbNotice">前台公告条</label>
+                            <input type="text" id="kbNotice" maxlength="80" placeholder="留空则不显示公告条">
+                        </div>
+                    </div>
+
+                    <div class="subsite-field">
+                        <label for="kbIntro">站点简介</label>
+                        <textarea id="kbIntro" rows="2" maxlength="200" placeholder="展示在前台首屏的简介"></textarea>
+                    </div>
+
+                    <div class="kb-actions">
+                        <button type="button" id="btnKbSave" class="btn btn-primary btn-sm">保存配置</button>
+                        <button type="button" id="btnKbReload" class="btn btn-secondary btn-sm">重新载入</button>
+                        <button type="button" id="btnKbOpen" class="btn btn-ghost btn-sm">打开知识库</button>
+                        <button type="button" id="btnKbCopy" class="btn btn-ghost btn-sm">复制链接</button>
+                        <span id="kbSaveState" class="kb-state">尚未保存</span>
+                        <span id="kbUrlText" class="kb-url">/kb/</span>
+                    </div>
+                </div>
+
+                <div class="admin-card">
+                    <div class="admin-card-title">知识条目管理</div>
+                    <div class="kb-stats">
+                        <div class="kb-stat"><strong id="kbStatEntries">0</strong><span>条目总数</span></div>
+                        <div class="kb-stat"><strong id="kbStatSubjects">0</strong><span>覆盖学科</span></div>
+                        <div class="kb-stat"><strong id="kbStatLatest">—</strong><span>最近更新</span></div>
+                    </div>
+
+                    <div class="subsite-grid">
+                        <div class="subsite-field">
+                            <label for="kbEntrySubject">学科</label>
+                            <select id="kbEntrySubject"></select>
+                        </div>
+                        <div class="subsite-field">
+                            <label for="kbEntryTitle">标题</label>
+                            <input type="text" id="kbEntryTitle" maxlength="60" placeholder="如：氧化还原反应配平四步法">
+                        </div>
+                        <div class="subsite-field">
+                            <label for="kbEntryTags">标签（逗号分隔）</label>
+                            <input type="text" id="kbEntryTags" maxlength="80" placeholder="配平,电子守恒">
+                        </div>
+                    </div>
+
+                    <div class="subsite-field">
+                        <label for="kbEntrySummary">摘要</label>
+                        <textarea id="kbEntrySummary" rows="2" maxlength="160" placeholder="列表页展示的一句话摘要"></textarea>
+                    </div>
+
+                    <div class="subsite-field">
+                        <label for="kbEntryContent">正文（支持 ## 小标题、- 列表、**加粗**、`代码`、&gt; 引用）</label>
+                        <textarea id="kbEntryContent" rows="10" placeholder="## 小标题&#10;- 要点一&#10;- 要点二"></textarea>
+                    </div>
+
+                    <div class="kb-actions">
+                        <button type="button" id="btnKbEntrySave" class="btn btn-primary btn-sm">保存条目</button>
+                        <button type="button" id="btnKbEntryNew" class="btn btn-secondary btn-sm">新建条目</button>
+                        <button type="button" id="btnKbEntryDelete" class="btn btn-danger btn-sm">删除当前条目</button>
+                        <span id="kbEntryState" class="kb-state"></span>
+                    </div>
+
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr><th>学科</th><th>标题</th><th>标签</th><th>更新时间</th><th>操作</th></tr>
+                            </thead>
+                            <tbody id="kbEntryList">
+                                <tr><td colspan="5" class="empty-tip">正在读取…</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
         </div>
     </main>
 
@@ -992,6 +1097,7 @@
     <script src="auth.js"></script>
     <script src="enhance.js"></script>
 <script src="admin-subsite.js"></script>
+<script src="admin-kb.js"></script>
     <script>
     // ===== 管理后台统一导航抽屉（与首页/个人页同款交互：汉堡展开、遮罩/关闭按钮收起） =====
     (function() {
