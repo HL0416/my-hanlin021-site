@@ -186,6 +186,14 @@ a { color: inherit; text-decoration: none; }
     margin: 10px 0; padding: 8px 14px; border-left: 3px solid var(--kb-accent);
     background: #f6fbfa; border-radius: 0 8px 8px 0; color: var(--kb-text-2); font-size: 13.5px;
 }
+.kb-body h5 { margin: 14px 0 6px; font-size: 14.5px; color: #0d3f3a; }
+.kb-table-wrap { overflow-x: auto; margin: 10px 0; border: 1px solid var(--kb-line); border-radius: 10px; }
+.kb-table { border-collapse: collapse; width: 100%; font-size: 13.5px; background: #fff; }
+.kb-table th, .kb-table td { border-bottom: 1px solid var(--kb-line); padding: 8px 12px; text-align: left; vertical-align: top; }
+.kb-table th { background: var(--kb-accent-soft); color: #0b6f66; font-weight: 600; white-space: nowrap; }
+.kb-table tbody tr:last-child td { border-bottom: 0; }
+.kb-table tbody tr:nth-child(even) { background: #fafcfb; }
+.kb-status.is-muted { color: var(--kb-text-2); font-size: 13px; opacity: 0.85; }
 
 /* 页脚 */
 .kb-footer { border-top: 1px solid var(--kb-line); background: #fff; margin-top: auto; }

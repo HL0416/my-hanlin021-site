@@ -282,6 +282,31 @@
             .replace(/`([^`]+)`/g, '<code>$1</code>');
     }
 
+    function splitRow(line) {
+        var s = line.trim();
+        if (s.charAt(0) === '|') s = s.slice(1);
+        if (s.charAt(s.length - 1) === '|') s = s.slice(0, -1);
+        return s.split('|').map(function (c) { return c.trim(); });
+    }
+
+    function isTableSep(line) {
+        return /^\|?[\s:\-|]+\|[\s:\-|]*$/.test(line.trim()) && line.indexOf('-') !== -1;
+    }
+
+    function renderTable(rows) {
+        var head = '', body = '', start = 0;
+        if (rows.length > 1 && isTableSep(rows[1])) {
+            head = '<thead><tr>' + splitRow(rows[0]).map(function (c) { return '<th>' + inlineMd(c) + '</th>'; }).join('') + '</tr></thead>';
+            start = 2;
+        }
+        for (var i = start; i < rows.length; i++) {
+            if (isTableSep(rows[i])) continue;
+            body += '<tr>' + splitRow(rows[i]).map(function (c) { return '<td>' + inlineMd(c) + '</td>'; }).join('') + '</tr>';
+        }
+        if (!body) return '';
+        return '<div class="kb-table-wrap"><table class="kb-table">' + head + '<tbody>' + body + '</tbody></table></div>';
+    }
+
     function renderBody(text) {
         var lines = String(text || '').split(/\r?\n/);
         var html = '', buf = [], mode = null;
@@ -296,29 +321,47 @@
             mode = null;
         }
 
-        lines.forEach(function (raw) {
-            var line = raw.replace(/\s+$/, '');
-            if (!line.trim()) { flush(); return; }
+        for (var i = 0; i < lines.length; i++) {
+            var line = lines[i].replace(/\s+$/, '');
+            if (!line.trim()) { flush(); continue; }
+
+            if (line.trim().charAt(0) === '|') {
+                var rows = [];
+                while (i < lines.length && lines[i].trim().charAt(0) === '|') {
+                    rows.push(lines[i]);
+                    i++;
+                }
+                i--;
+                flush();
+                html += renderTable(rows);
+                continue;
+            }
+
             var h = line.match(/^(#{1,4})\s+(.*)$/);
-            if (h) { flush(); html += '<h4>' + inlineMd(h[2]) + '</h4>'; return; }
+            if (h) {
+                flush();
+                var tag = h[1].length <= 2 ? 'h4' : 'h5';
+                html += '<' + tag + '>' + inlineMd(h[2]) + '</' + tag + '>';
+                continue;
+            }
             var ul = line.match(/^[-*]\s+(.*)$/);
             if (ul) {
                 if (mode !== 'ul') { flush(); mode = 'ul'; }
-                buf.push(ul[1]); return;
+                buf.push(ul[1]); continue;
             }
             var ol = line.match(/^\d+[.、)]\s+(.*)$/);
             if (ol) {
                 if (mode !== 'ol') { flush(); mode = 'ol'; }
-                buf.push(ol[1]); return;
+                buf.push(ol[1]); continue;
             }
             if (/^>\s?/.test(line)) {
                 if (mode !== 'quote') { flush(); mode = 'quote'; }
-                buf.push(line.replace(/^>\s?/, '')); return;
+                buf.push(line.replace(/^>\s?/, '')); continue;
             }
             if (mode && mode !== 'p') flush();
             mode = 'p';
             buf.push(line);
-        });
+        }
         flush();
         return html || '<p>该条目暂无正文内容。</p>';
     }
@@ -403,18 +446,42 @@
         });
     }
 
+    var LOCAL_DATA = 'data/entries.json';
+
+    function loadLocal() {
+        return fetch(LOCAL_DATA, { cache: 'no-cache' }).then(function (r) {
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            return r.json();
+        });
+    }
+
     function boot() {
         bind();
         renderSession();
 
         var cfgPromise = apiGet(K_CONFIG).catch(function () { return null; });
         var entriesPromise = apiGet(K_ENTRIES).catch(function () { return null; });
+        var localPromise = loadLocal().catch(function () { return null; });
 
-        Promise.all([cfgPromise, entriesPromise]).then(function (res) {
+        Promise.all([cfgPromise, entriesPromise, localPromise]).then(function (res) {
             applyConfig(res[0]);
-            var entries = normalizeEntries(res[1]);
-            var fromCloud = entries.length > 0;
-            state.entries = fromCloud ? entries : normalizeEntries(SAMPLE);
+
+            var cloud = normalizeEntries(res[1]);
+            var localData = res[2];
+            var local = normalizeEntries(localData && localData.entries ? localData.entries : localData);
+
+            if (cloud.length) {
+                state.entries = cloud;
+                state.srcNote = '内容来自云端后台条目，共 ' + cloud.length + ' 条。';
+            } else if (local.length) {
+                state.entries = local;
+                var stamp = localData && localData.generatedAt ? fmtDate(localData.generatedAt) : '';
+                state.srcNote = '内容与原文件同步，共 ' + local.length + ' 条' + (stamp ? '，同步时间 ' + stamp : '') + '（原文件更新后同步刷新）。';
+            } else {
+                state.entries = normalizeEntries(SAMPLE);
+                state.srcNote = '暂未读取到同步数据，当前展示内置示例内容。';
+            }
+            var fromSample = !cloud.length && !local.length;
             state.loading = false;
 
             if (!state.cfg.enabled) {
@@ -426,8 +493,9 @@
                 return;
             }
 
-            $('kbStatus').textContent = fromCloud ? '' : '暂未从云端读取到条目，当前展示内置示例内容（后台保存后即以上传内容为准）。';
-            $('kbStatus').hidden = fromCloud;
+            $('kbStatus').textContent = state.srcNote;
+            $('kbStatus').hidden = false;
+            $('kbStatus').classList.toggle('is-muted', fromSample);
 
             renderSubjects();
             renderStats();
