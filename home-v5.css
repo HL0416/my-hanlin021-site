@@ -556,3 +556,104 @@
         border-radius: 3px;
     }
 }
+
+/* ============================================================
+ * ⑩ v6 覆盖：主体改单列通栏 + 每个板块各占一整行
+ *   - .hv4-layout 由 2.35fr/1fr 改为单列通栏（最新内容整行）
+ *   - .hv4-side 取消 sticky / 限高 / 内部滚动，并改为单列纵向堆叠，
+ *     使「公告通知 / 每日一言 / 快捷功能」自上而下各占满一整行
+ *   - 追加段位于文件末尾，与上方 @media(min-width:1025px) 内 sticky
+ *     规则特异性相同（0,3,0），靠后出现覆盖生效，无需 !important
+ * ============================================================ */
+.home-container.home-v4 .hv4-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
+    align-items: start;
+}
+
+.home-container.home-v4 .hv4-side {
+    grid-column: 1 / -1;
+    position: static;
+    top: auto;
+    align-self: stretch;
+    max-height: none;
+    height: auto;
+    overflow: visible;
+    overscroll-behavior: auto;
+    padding-right: 0;
+    scrollbar-width: auto;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
+    align-items: stretch;
+}
+
+/* 侧栏各板块整行铺满；显式重置 grid-column，
+   覆盖 styles.css 中 `@media (min-width:768px) and (max-width:1023px)`
+   的 `section:has(.quick-actions) / section:has(#announcementList)
+   { grid-column: 1 / -1 }`（其中 `section:has(#announcementList)` 因含 id
+   特异性达 (1,2,1)，普通类选择器压不住，故用 !important 显式重置） */
+.home-container.home-v4 .hv4-side > .hv4-side-card {
+    grid-column: auto !important;
+    min-width: 0;
+    height: auto;
+}
+
+/* 700px 以下：仅收紧板块间距，列数已是单列，无需再降级 */
+@media (max-width: 700px) {
+    .home-container.home-v4 .hv4-layout {
+        gap: 16px;
+    }
+
+    .home-container.home-v4 .hv4-side {
+        gap: 14px;
+    }
+}
+
+/* ============================================================
+ * ⑩ 知识库入口 + 移动端排查修正（v6 修 1）
+ *   1. 快捷功能新增「学科知识库」卡片图标
+ *   2. 底部导航由 6 项增至 7 项，压缩单格宽度防换行
+ *   3. 390 视口 .hv4-tabs 仍溢出（实测 414 > 368），手机端缩小
+ *      胶囊内边距并允许横向滚动、隐藏滚动条
+ *   4. 手机端 #fabGroup 与 Netlify 徽标 iframe 重叠（徽标占
+ *      右下 y780-844），抬高悬浮按钮至 150px 避开
+ * ============================================================ */
+.quick-icon-kb {
+    background: linear-gradient(135deg, #4f7cff, #7aa2ff) !important;
+    color: #fff !important;
+}
+
+@media (max-width: 767px) {
+    .bottom-nav .bottom-nav-item {
+        flex: 1 1 0 !important;
+        min-width: 0 !important;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+        white-space: nowrap;
+        font-size: 11px !important;
+    }
+
+    .home-container.home-v4 .hv4-tabs {
+        overflow-x: auto;
+        overflow-y: hidden;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        justify-content: flex-start;
+        flex-wrap: nowrap;
+    }
+    .home-container.home-v4 .hv4-tabs::-webkit-scrollbar { display: none; }
+
+    .home-container.home-v4 .hv4-tab {
+        padding: 9px 13px !important;
+        font-size: 13px;
+        flex: 0 0 auto;
+        white-space: nowrap;
+    }
+
+    .fab-group {
+        bottom: calc(150px + env(safe-area-inset-bottom, 0px)) !important;
+        right: 14px !important;
+    }
+}
