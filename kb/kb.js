@@ -143,6 +143,7 @@
             notice: c.notice || '',
             subjects: (Array.isArray(c.subjects) && c.subjects.length ? c.subjects.filter(Boolean) : DEFAULTS.subjects).map(String)
         };
+    state.tag = '';
         var cfgRoot = document.documentElement.style;
         cfgRoot.setProperty('--kb-accent', state.cfg.accent);
         cfgRoot.setProperty('--kb-accent-soft', hexSoft(state.cfg.accent));
@@ -224,6 +225,78 @@
         $('kbStatTag').textContent = Object.keys(tags).length;
     }
 
+    /* ===== 自然排序 + 下载导出 ===== */
+    function natCompare(a, b) {
+        var re = /(\d+)|(\D+)/g;
+        var pa = String(a).match(re) || [], pb = String(b).match(re) || [];
+        var n = Math.min(pa.length, pb.length);
+        for (var i = 0; i < n; i++) {
+            var x = pa[i], y = pb[i];
+            if (/^\d+$/.test(x) && /^\d+$/.test(y)) {
+                var d = parseInt(x, 10) - parseInt(y, 10);
+                if (d) return d;
+            } else {
+                var c = x.localeCompare(y, 'zh-Hans-CN');
+                if (c) return c;
+            }
+        }
+        return pa.length - pb.length;
+    }
+
+    function safeName(v) {
+        return String(v == null ? '' : v).replace(/[\\/:*?"<>|\s]+/g, '_').slice(0, 60) || 'entry';
+    }
+
+    function downloadText(name, text) {
+        var blob = new Blob(['\ufeff' + text], { type: 'text/markdown;charset=utf-8' });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = name;
+        a.rel = 'noopener';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(function () { URL.revokeObjectURL(url); if (a.parentNode) a.parentNode.removeChild(a); }, 1500);
+    }
+
+    function entryToMd(e) {
+        var out = '# ' + (e.title || '未命名条目') + '\n\n';
+        out += '- 学科：' + (e.subject || '未分类') + '\n';
+        out += '- 标签：' + ((e.tags && e.tags.length ? e.tags.join('、') : '无')) + '\n';
+        out += '- 更新于：' + fmtDate(e.updatedAt) + '\n';
+        if (e.createdAt) out += '- 创建于：' + fmtDate(e.createdAt) + '\n';
+        if (e.author) out += '- 维护者：' + e.author + '\n';
+        if (e.summary) out += '\n> ' + e.summary + '\n';
+        return out + '\n' + String(e.body || '') + '\n';
+    }
+
+    function kbSetStatus(msg) {
+        var st = document.getElementById('kbStatus');
+        if (st) { st.hidden = false; st.textContent = msg; }
+    }
+
+    function downloadEntry() {
+        var e = state.current;
+        if (!e) { kbSetStatus('请先打开一条条目再下载'); return; }
+        downloadText(safeName(e.subject + '-' + e.title) + '.md', entryToMd(e));
+        kbSetStatus('已开始下载：' + (e.title || '条目') + '.md');
+    }
+
+    function downloadList() {
+        var list = filtered();
+        if (!list.length) { kbSetStatus('当前筛选没有可导出的条目'); return; }
+        var d = new Date();
+        var stamp = d.getFullYear() + ('0' + (d.getMonth() + 1)).slice(-2) + ('0' + d.getDate()).slice(-2);
+        var scope = state.tag ? ('标签：' + state.tag) : (state.subject === 'all' ? '全部学科' : state.subject);
+        var head = '# 学科知识库导出\n\n- 导出时间：' + stamp
+            + '\n- 范围：' + scope
+            + (state.q ? '（关键词：' + state.q + '）' : '')
+            + '\n- 条目数：' + list.length + '\n\n---\n\n';
+        downloadText('知识库_' + (state.tag ? safeName(state.tag) : (state.subject === 'all' ? '全部' : safeName(state.subject))) + '_' + stamp + '.md',
+            head + list.map(entryToMd).join('\n---\n\n'));
+        kbSetStatus('已导出 ' + list.length + ' 条为 Markdown');
+    }
+
     function filtered() {
         var q = state.q.trim().toLowerCase();
         var list = state.entries.filter(function (e) {
@@ -241,6 +314,12 @@
             });
         } else {
             list.sort(function (a, b) { return (b.updatedAt || '').localeCompare(a.updatedAt || ''); });
+        }
+        if (state.tag) {
+            list = list.filter(function (e) { return (e.tags || []).indexOf(state.tag) !== -1; });
+        }
+        if (state.sort === 'title') {
+            list.sort(function (a, b) { return natCompare(a.title, b.title); });
         }
         return list;
     }
@@ -261,7 +340,7 @@
         wrap.hidden = false;
 
         wrap.innerHTML = list.map(function (e) {
-            var tags = e.tags.slice(0, 4).map(function (t) { return '<span class="kb-tag">' + esc(t) + '</span>'; }).join('');
+            var tags = e.tags.slice(0, 4).map(function (t) { return '<span class="kb-tag kb-tag-btn' + (state.tag === t ? ' is-on' : '') + '" data-tag="' + esc(t) + '">' + esc(t) + '</span>'; }).join('');
             return '<button type="button" class="kb-card" data-id="' + esc(e.id) + '">'
                 + '<div class="kb-card-head"><span class="kb-badge">' + esc(e.subject) + '</span>'
                 + '<span class="kb-card-meta" style="margin:0">更新于 ' + esc(fmtDate(e.updatedAt)) + '</span></div>'
@@ -271,9 +350,22 @@
                 + '</button>';
         }).join('');
 
+        wrap.querySelectorAll('.kb-tag-btn').forEach(function (tagEl) {
+            tagEl.addEventListener('click', function (ev) {
+                ev.preventDefault();
+                ev.stopPropagation();
+                var t = tagEl.getAttribute('data-tag') || '';
+                state.tag = (state.tag === t) ? '' : t;
+                renderList();
+            });
+        });
+
         wrap.querySelectorAll('.kb-card').forEach(function (card) {
             card.addEventListener('click', function () { openDetail(card.getAttribute('data-id')); });
         });
+        if (state.tag) {
+            kbSetStatus('已按标签筛选：' + state.tag + '（再次点击该标签可取消）· 共 ' + list.length + ' 条');
+        }
     }
 
     function inlineMd(s) {
@@ -367,6 +459,10 @@
     }
 
     function openDetail(id) {
+        state.current = null;
+        (state.entries || []).forEach(function (x) {
+            if (String(x.id) === String(id)) { state.current = x; }
+        });
         var e = state.entries.filter(function (x) { return String(x.id) === String(id); })[0];
         if (!e) return;
         $('kbDetailSubject').textContent = e.subject;
@@ -409,6 +505,11 @@
     }
 
     function bind() {
+        var _dl = document.getElementById('kbDetailDownload');
+        if (_dl) _dl.addEventListener('click', function (ev) { ev.preventDefault(); ev.stopPropagation(); downloadEntry(); });
+        var _ex = document.getElementById('kbExportBtn');
+        if (_ex) _ex.addEventListener('click', function (ev) { ev.preventDefault(); downloadList(); });
+
         var search = $('kbSearch');
         var timer = null;
         search.addEventListener('input', function () {
