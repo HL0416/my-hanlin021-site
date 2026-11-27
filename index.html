@@ -9,7 +9,7 @@
     <title>首页 - 我的站点</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="home.css">
-    <link rel="stylesheet" href="home-v5.css">
+    <link rel="stylesheet" href="home-v5.css?v=6">
 </head>
 
 <body class="home-page">
@@ -53,6 +53,7 @@
                 <li><a href="#sideDaily" class="drawer-link"><span class="drawer-icon">📔</span>日记心情</a></li>
                 <li><a href="posts.html" class="drawer-link"><span class="drawer-icon">🗂️</span>帖子广场</a></li>
                 <li><a href="files.html" class="drawer-link"><span class="drawer-icon">📁</span>文件中心</a></li>
+                <li><a href="/kb/" class="drawer-link"><span class="drawer-icon">📚</span>学科知识库</a></li>
                 <li><a href="profile.html" class="drawer-link login-guard" id="drawerProfileLinkNav"><span class="drawer-icon">👤</span>我的</a></li>
             </ul>
             <div class="drawer-section-title">功能</div>
@@ -78,7 +79,6 @@
         <!-- ==================== 首屏：概览 + 主入口 ==================== -->
         <section class="hv4-hero" id="homeHero" aria-label="站点概览">
             <div class="hv4-hero-body">
-                <p class="hv4-hero-eyebrow">校园资源共享平台</p>
                 <h1 class="hv4-hero-title">在这里，分享与发现</h1>
                 <p class="hv4-hero-sub">最新内容占据主栏，公告、每日一言与快捷入口归入侧栏，动态、投票、相册与反馈集中到一个互动区，首屏即可看到站点动态。</p>
                 <div class="hv4-hero-actions">
@@ -106,6 +106,7 @@
                 <a href="#panel-feedback" class="hv5-chip" data-hv4-goto="feedback">用户反馈</a>
                 <a href="#guestbookSection" class="hv5-chip">访客留言</a>
                 <a href="#sideAnnounce" class="hv5-chip">公告通知</a>
+                <a href="/kb/" class="hv5-chip">学科知识库</a>
             </div>
         </nav>
 
@@ -187,6 +188,11 @@
                             <div class="quick-icon quick-icon-help">帮</div>
                             <div class="quick-title">帮助中心</div>
                             <div class="quick-desc">常见问题与使用指南</div>
+                        </a>
+                        <a href="/kb/" class="quick-card">
+                            <div class="quick-icon quick-icon-kb">知</div>
+                            <div class="quick-title">学科知识库</div>
+                            <div class="quick-desc">233 条知识点速查</div>
                         </a>
                         <a href="#" class="quick-card"
                             onclick="window.scrollTo({top:0,behavior:'smooth'});return false;">
@@ -302,6 +308,7 @@
         <a href="#contentSection" class="bottom-nav-item active" id="bottomHomeLink">首页</a>
         <a href="#panel-moment" class="bottom-nav-item" data-hv4-goto="moment">动态</a>
         <a href="#" class="bottom-nav-item" id="bottomMsgTab">消息</a>
+        <a href="/kb/" class="bottom-nav-item">知识</a>
         <a href="posts.html" class="bottom-nav-item">帖子</a>
         <a href="files.html" class="bottom-nav-item">文件</a>
         <a href="profile.html" class="bottom-nav-item login-guard" id="bottomProfileLink">我的</a>
