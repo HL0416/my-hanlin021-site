@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>学科知识库 · 我的站点</title>
 <meta name="description" content="主站附属的学科知识库站点，按学科整理知识点、公式、解题模型与易错笔记。">
-<link rel="stylesheet" href="kb.css?v=3">
+<link rel="stylesheet" href="kb.css?v=4">
 <link rel="manifest" href="../manifest.json">
 </head>
 <body>
@@ -52,6 +52,7 @@
         <div class="kb-toolbar">
             <h2 id="kbListTitle">全部条目</h2>
             <div class="kb-tools">
+                <button id="kbExportBtn" class="kb-btn" type="button" title="把当前筛选结果导出为 Markdown 文件">导出当前列表</button>
                 <select id="kbSort" class="kb-select">
                     <option value="updated">按更新时间</option>
                     <option value="title">按标题</option>
@@ -81,7 +82,10 @@
                 <h3 id="kbDetailTitle">条目标题</h3>
                 <p id="kbDetailMeta" class="kb-detail-meta"></p>
             </div>
+            <div class="kb-detail-actions">
+                <button id="kbDetailDownload" class="kb-btn" type="button">下载本篇</button>
             <button id="kbDetailClose" class="kb-close" type="button" aria-label="关闭">×</button>
+            </div>
         </header>
         <div id="kbDetailTags" class="kb-tags"></div>
         <div id="kbDetailBody" class="kb-body"></div>
@@ -99,6 +103,6 @@
     </div>
 </footer>
 
-<script src="kb.js?v=3"></script>
+<script src="kb.js?v=4"></script>
 </body>
 </html>
