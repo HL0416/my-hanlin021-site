@@ -548,9 +548,10 @@
     }
 
     var LOCAL_DATA = 'data/entries.json';
+    var LOCAL_DATA_URL = LOCAL_DATA + '?t=' + Date.now(); // 破缓存：始终取最新同步数据
 
     function loadLocal() {
-        return fetch(LOCAL_DATA, { cache: 'no-cache' }).then(function (r) {
+        return fetch(LOCAL_DATA_URL, { cache: 'no-cache' }).then(function (r) {
             if (!r.ok) throw new Error('HTTP ' + r.status);
             return r.json();
         });
