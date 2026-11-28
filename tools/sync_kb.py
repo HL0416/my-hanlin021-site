@@ -31,14 +31,22 @@ DEFAULT_SRC = os.environ.get(
 )
 DEFAULT_OUT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'kb', 'data', 'entries.json')
 
+# 语文扩展篇（作文素材库·扩展篇）原文件位于独立的只读源目录
+DEFAULT_SRC_EXT = os.environ.get(
+    'KB_SRC_EXT',
+    r'D:\Marvis\Data\User\oAN1i2aIP2CorgRF5AydNjYJaKzk\workspace\conv_b6ec425b168c418291e253eb386ecd3e\output',
+)
+
+# (文件名, 学科, 独立源目录；None 表示使用主源目录)
 FILES = [
-    ('全学科知识库总索引.md', '总览'),
-    ('高中语文高考议论文作文素材库.md', '语文'),
-    ('高中数学核心考点全典（人教版2019版）.md', '数学'),
-    ('高中英语核心考点全典（人教版2019版）.md', '英语'),
-    ('高中物理核心考点全典（人教版2019版）.md', '物理'),
-    ('高中化学方程式全典（人教版2019版）.md', '化学'),
-    ('高中生物核心考点全典（人教版2019版）.md', '生物'),
+    ('全学科知识库总索引.md', '总览', None),
+    ('高中语文高考议论文作文素材库.md', '语文', None),
+    ('高中数学核心考点全典（人教版2019版）.md', '数学', None),
+    ('高中英语核心考点全典（人教版2019版）.md', '英语', None),
+    ('高中物理核心考点全典（人教版2019版）.md', '物理', None),
+    ('高中化学方程式全典（人教版2019版）.md', '化学', None),
+    ('高中生物核心考点全典（人教版2019版）.md', '生物', None),
+    ('高中语文高考议论文作文素材库_扩展篇.md', '语文', DEFAULT_SRC_EXT),
 ]
 
 
@@ -126,29 +134,62 @@ def split_h2(text):
     return out
 
 
-def entry_id(subject, title):
-    return 'kb-' + hashlib.md5((subject + '|' + title).encode('utf-8')).hexdigest()[:8]
+def split_h2_with_h1(text):
+    """按二级标题切分，并记录所属一级标题（章）。返回 [(h1, title, body)]。"""
+    out, cur, buf, h1 = [], None, [], ''
+    for line in text.split('\n'):
+        m1 = re.match(r'^#\s+(.+?)\s*$', line)
+        if m1:
+            if cur is not None:
+                out.append((h1, cur, '\n'.join(buf).strip()))
+                cur, buf = None, []
+            h1 = clean_inline(m1.group(1))
+            continue
+        m = re.match(r'^##\s+(.+?)\s*$', line)
+        if m:
+            if cur is not None:
+                out.append((h1, cur, '\n'.join(buf).strip()))
+            cur, buf = clean_inline(m.group(1)), []
+        elif cur is not None:
+            buf.append(line)
+    if cur is not None:
+        out.append((h1, cur, '\n'.join(buf).strip()))
+    return out
+
+
+def entry_id(subject, title, salt=''):
+    key = subject + '|' + title + (('|' + salt) if salt else '')
+    return 'kb-' + hashlib.md5(key.encode('utf-8')).hexdigest()[:8]
 
 
 def build(src):
     entries, files_meta = [], []
-    for name, subject in FILES:
-        path = os.path.join(src, name)
+    for name, subject, base in FILES:
+        src_dir = base or src
+        path = os.path.join(src_dir, name)
         if not os.path.exists(path):
             raise SystemExit('缺少原文件：' + path)
         raw = open(path, encoding='utf-8').read()
         stamp = time.strftime('%Y-%m-%dT%H:%M:%S+08:00', time.localtime(os.path.getmtime(path)))
-        parts = split_h2(strip_front_matter(raw))
+        body_text = strip_front_matter(raw)
+        if base is None:
+            parts = [(None, t, b) for t, b in split_h2(body_text)]
+        else:
+            parts = split_h2_with_h1(body_text)
+        # 同一学科的第二份及以后文件加文件名盐，保证 id 唯一且历史条目 id 不变
+        salt = '' if base is None else name
         files_meta.append({
             'file': name, 'subject': subject,
             'bytes': len(raw.encode('utf-8')),
             'updatedAt': stamp, 'entries': len(parts),
         })
-        for title, body in parts:
+        for h1, title, body in parts:
             if not title and not body:
                 continue
+            if h1 and h1 not in title:
+                title = h1 + ' · ' + title
             entries.append({
-                'id': entry_id(subject, title),
+                'id': entry_id(subject, title, salt),
                 'subject': subject,
                 'title': title,
                 'tags': make_tags(title, body),
