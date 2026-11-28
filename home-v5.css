@@ -696,3 +696,12 @@
 .quick-icon-security {
     background: linear-gradient(135deg, #00b894, #00997e);
 }
+
+/* ============================================================
+ * 首页快捷功能区：9 张卡固定 3 列（3×3 满格，避免宽屏 4 列留下单张空缺）
+ * ============================================================ */
+@media (min-width: 1024px) {
+    .home-v4 .hv4-side-card .quick-actions {
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    }
+}
