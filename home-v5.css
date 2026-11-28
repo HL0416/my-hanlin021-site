@@ -297,8 +297,31 @@
 
 .home-container.home-v4 .hv4-main #contentList .content-card-actions {
     margin-top: auto;
-    gap: 6px;
-    flex-wrap: wrap;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: nowrap;
+    padding-top: 12px;
+    border-top: 1px dashed var(--hv4-border);
+}
+
+/* 内容卡操作按钮：横排等距（原样式继承 .btn{width:100%}，三个按钮各占整行竖排） */
+.home-container.home-v4 .hv4-main #contentList .content-card-actions .btn {
+    width: auto !important;
+    min-width: 0;
+    flex: 0 0 auto;
+    height: auto;
+    min-height: 30px;
+    padding: 6px 14px !important;
+    font-size: 12.5px !important;
+    line-height: 1.2;
+    border-radius: 8px;
+    white-space: nowrap;
+}
+
+/* 仅一条内容时卡片通栏，避免两列栅格右侧大块留白 */
+.home-container.home-v4 .hv4-main #contentList.content-list:has(.content-card:only-child) {
+    grid-template-columns: minmax(0, 1fr) !important;
 }
 
 /* ============================================================
@@ -466,6 +489,15 @@
 @media (max-width: 640px) {
     .home-container.home-v4 .hv4-main #contentList.content-list {
         grid-template-columns: minmax(0, 1fr) !important;
+    }
+
+    .home-container.home-v4 .hv4-main #contentList .content-card-actions {
+        gap: 8px;
+    }
+
+    .home-container.home-v4 .hv4-main #contentList .content-card-actions .btn {
+        padding: 6px 10px !important;
+        font-size: 12px !important;
     }
 }
 
