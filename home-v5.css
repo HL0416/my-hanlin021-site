@@ -705,3 +705,8 @@
         grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
     }
 }
+
+/* 快捷功能：我的收藏入口图标 */
+.quick-icon-favorite {
+    background: linear-gradient(135deg, #f6b93b, #e58e26);
+}
